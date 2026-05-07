@@ -170,6 +170,9 @@ func TestSessionPollingErrors(t *testing.T) {
 		if rec.Code != http.StatusMethodNotAllowed {
 			t.Fatalf("status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
 		}
+		if allow := rec.Header().Get("Allow"); allow != "GET, DELETE" {
+			t.Fatalf("allow = %q, want %q", allow, "GET, DELETE")
+		}
 	})
 
 	t.Run("not found", func(t *testing.T) {
@@ -180,4 +183,38 @@ func TestSessionPollingErrors(t *testing.T) {
 			t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
 		}
 	})
+}
+
+func TestSessionDeleteLifecycle(t *testing.T) {
+	resetSignals()
+	mux := newMux()
+
+	offer := `{"sessionId":"sess-del","sdp":"offer-sdp","fromPeer":"alice"}`
+	offerReq := httptest.NewRequest(http.MethodPost, "/signal/offer", bytes.NewBufferString(offer))
+	offerRec := httptest.NewRecorder()
+	mux.ServeHTTP(offerRec, offerReq)
+	if offerRec.Code != http.StatusAccepted {
+		t.Fatalf("offer status = %d, want %d", offerRec.Code, http.StatusAccepted)
+	}
+
+	delReq := httptest.NewRequest(http.MethodDelete, "/signal/session/sess-del", nil)
+	delRec := httptest.NewRecorder()
+	mux.ServeHTTP(delRec, delReq)
+	if delRec.Code != http.StatusNoContent {
+		t.Fatalf("delete status = %d, want %d", delRec.Code, http.StatusNoContent)
+	}
+
+	getReq := httptest.NewRequest(http.MethodGet, "/signal/session/sess-del", nil)
+	getRec := httptest.NewRecorder()
+	mux.ServeHTTP(getRec, getReq)
+	if getRec.Code != http.StatusNotFound {
+		t.Fatalf("post-delete get status = %d, want %d", getRec.Code, http.StatusNotFound)
+	}
+
+	delAgainReq := httptest.NewRequest(http.MethodDelete, "/signal/session/sess-del", nil)
+	delAgainRec := httptest.NewRecorder()
+	mux.ServeHTTP(delAgainRec, delAgainReq)
+	if delAgainRec.Code != http.StatusNotFound {
+		t.Fatalf("second delete status = %d, want %d", delAgainRec.Code, http.StatusNotFound)
+	}
 }

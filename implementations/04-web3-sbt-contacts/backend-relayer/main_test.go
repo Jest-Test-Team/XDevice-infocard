@@ -121,6 +121,13 @@ func TestPrepareHandlerErrors(t *testing.T) {
 			wantStatus: http.StatusBadRequest,
 			wantErr:    "operation is required",
 		},
+		{
+			name:       "unsupported operation",
+			method:     http.MethodPost,
+			body:       `{"operation":"delete","payload":{"x":1}}`,
+			wantStatus: http.StatusBadRequest,
+			wantErr:    "unsupported operation",
+		},
 	}
 
 	for _, tc := range tests {
@@ -173,6 +180,13 @@ func TestSubmitHandlerErrors(t *testing.T) {
 		rec := httptest.NewRecorder()
 		submitHandler(rec, req)
 		assertErrorResponse(t, rec, http.StatusBadRequest, "signature must be a hex string starting with 0x")
+	})
+
+	t.Run("invalid signature hex", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/v1/submit", strings.NewReader(`{"requestId":"abc","signature":"0xzzzzzzzzzz"}`))
+		rec := httptest.NewRecorder()
+		submitHandler(rec, req)
+		assertErrorResponse(t, rec, http.StatusBadRequest, "signature is not valid hex")
 	})
 
 	t.Run("request not found", func(t *testing.T) {

@@ -103,6 +103,10 @@ func prepareHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "operation is required"})
 		return
 	}
+	if !isAllowedOperation(req.Operation) {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "unsupported operation"})
+		return
+	}
 
 	requestID, err := randomHex(16)
 	if err != nil {
@@ -149,6 +153,10 @@ func submitHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	if !strings.HasPrefix(req.Signature, "0x") || len(req.Signature) < 10 {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "signature must be a hex string starting with 0x"})
+		return
+	}
+	if _, err := hex.DecodeString(strings.TrimPrefix(req.Signature, "0x")); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "signature is not valid hex"})
 		return
 	}
 
@@ -219,4 +227,13 @@ func randomHex(size int) (string, error) {
 		return "", err
 	}
 	return hex.EncodeToString(b), nil
+}
+
+func isAllowedOperation(op string) bool {
+	switch strings.ToLower(strings.TrimSpace(op)) {
+	case "connect", "exchange":
+		return true
+	default:
+		return false
+	}
 }

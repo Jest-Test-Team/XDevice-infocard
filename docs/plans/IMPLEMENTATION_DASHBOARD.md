@@ -131,3 +131,17 @@ Implement executable scaffolds for all 4 plans under `implementations/` with non
 ### Verification
 - `implementations/02-nearby-connections/nearby-card-drop/signaling-server`: `go test ./...` PASS
 - `implementations/03-animated-qr-visual-handshake/fountain-core`: `cargo test` PASS (9 passed)
+
+## Continuation Batch 9 (2026-05-07)
+- Plan 02 signaling server: added session lifecycle delete endpoint on existing route:
+  - `DELETE /signal/session/{sessionId}` removes session state.
+  - `GET/DELETE` allowlist now enforced on `/signal/session/*`.
+- Plan 02 tests: added delete lifecycle tests (delete, post-delete fetch, second delete not-found).
+- Plan 04 relayer: hardened input validation:
+  - `prepare` now restricts operations to allowlist (`connect`, `exchange`).
+  - `submit` now validates signature hex content (`0x` prefixed and valid hex).
+- Plan 04 tests: added unsupported operation and invalid-hex signature cases.
+
+### Verification
+- `implementations/02-nearby-connections/nearby-card-drop/signaling-server`: `go test ./...` PASS
+- `implementations/04-web3-sbt-contacts/backend-relayer`: `go test ./...` PASS
