@@ -80,4 +80,22 @@ mod tests {
         let decoded = decode(&symbols).expect("decode should recover");
         assert_eq!(decoded, payload);
     }
+
+    #[test]
+    fn decode_rejects_mixed_payload_lengths() {
+        let symbols = vec![
+            Symbol::new(21, 6, 0, 3, b"foo".to_vec()),
+            Symbol::new(21, 7, 1, 3, b"bar".to_vec()),
+            Symbol::new(21, 6, 2, 3, b"\x04\x0e\x1d".to_vec()),
+        ];
+        let err = decode(&symbols).expect_err("decode should fail");
+        assert_eq!(err, "mixed payload lengths");
+    }
+
+    #[test]
+    fn decode_rejects_invalid_total_count_zero() {
+        let symbols = vec![Symbol::new(31, 3, 0, 0, b"abc".to_vec())];
+        let err = decode(&symbols).expect_err("decode should fail");
+        assert_eq!(err, "invalid total count");
+    }
 }

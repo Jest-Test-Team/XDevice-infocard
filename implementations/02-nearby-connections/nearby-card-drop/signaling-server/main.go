@@ -34,6 +34,14 @@ type signalRecord struct {
 	AnswerPeer string
 }
 
+type sessionStateResponse struct {
+	SessionID  string `json:"sessionId"`
+	HasOffer   bool   `json:"hasOffer"`
+	HasAnswer  bool   `json:"hasAnswer"`
+	OfferPeer  string `json:"offerPeer,omitempty"`
+	AnswerPeer string `json:"answerPeer,omitempty"`
+}
+
 var (
 	signalsMu sync.Mutex
 	signals   = map[string]signalRecord{}
@@ -122,11 +130,60 @@ func answerHandler(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
+func sessionHandler(w http.ResponseWriter, r *http.Request) {
+	sessionID := strings.TrimPrefix(r.URL.Path, "/signal/session/")
+	if strings.TrimSpace(sessionID) == "" {
+		http.Error(w, "sessionId is required", http.StatusBadRequest)
+		return
+	}
+
+	if r.Method == http.MethodDelete {
+		signalsMu.Lock()
+		_, ok := signals[sessionID]
+		if ok {
+			delete(signals, sessionID)
+		}
+		signalsMu.Unlock()
+		if !ok {
+			http.Error(w, "session not found", http.StatusNotFound)
+			return
+		}
+		w.WriteHeader(http.StatusNoContent)
+		return
+	}
+
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", "GET, DELETE")
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	signalsMu.Lock()
+	record, ok := signals[sessionID]
+	signalsMu.Unlock()
+	if !ok {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+
+	resp := sessionStateResponse{
+		SessionID:  sessionID,
+		HasOffer:   strings.TrimSpace(record.OfferSdp) != "",
+		HasAnswer:  strings.TrimSpace(record.AnswerSdp) != "",
+		OfferPeer:  record.OfferPeer,
+		AnswerPeer: record.AnswerPeer,
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
 func newMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/signal/offer", postOnly(offerHandler))
 	mux.HandleFunc("/signal/answer", postOnly(answerHandler))
+	mux.HandleFunc("/signal/session/", sessionHandler)
 	return mux
 }
 

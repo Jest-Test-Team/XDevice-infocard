@@ -119,3 +119,65 @@ func TestAnswerWithoutOfferFails(t *testing.T) {
 		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
 	}
 }
+
+func TestSessionPolling(t *testing.T) {
+	resetSignals()
+	mux := newMux()
+
+	offer := `{"sessionId":"sess-poll","sdp":"offer-sdp","fromPeer":"alice"}`
+	offerReq := httptest.NewRequest(http.MethodPost, "/signal/offer", bytes.NewBufferString(offer))
+	offerRec := httptest.NewRecorder()
+	mux.ServeHTTP(offerRec, offerReq)
+	if offerRec.Code != http.StatusAccepted {
+		t.Fatalf("offer status = %d, want %d", offerRec.Code, http.StatusAccepted)
+	}
+
+	answer := `{"sessionId":"sess-poll","sdp":"answer-sdp","fromPeer":"bob"}`
+	answerReq := httptest.NewRequest(http.MethodPost, "/signal/answer", bytes.NewBufferString(answer))
+	answerRec := httptest.NewRecorder()
+	mux.ServeHTTP(answerRec, answerReq)
+	if answerRec.Code != http.StatusAccepted {
+		t.Fatalf("answer status = %d, want %d", answerRec.Code, http.StatusAccepted)
+	}
+
+	pollReq := httptest.NewRequest(http.MethodGet, "/signal/session/sess-poll", nil)
+	pollRec := httptest.NewRecorder()
+	mux.ServeHTTP(pollRec, pollReq)
+	if pollRec.Code != http.StatusOK {
+		t.Fatalf("poll status = %d, want %d", pollRec.Code, http.StatusOK)
+	}
+
+	var resp sessionStateResponse
+	if err := json.NewDecoder(pollRec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode poll response: %v", err)
+	}
+	if !resp.HasOffer || !resp.HasAnswer {
+		t.Fatalf("expected offer+answer true, got %+v", resp)
+	}
+	if resp.OfferPeer != "alice" || resp.AnswerPeer != "bob" {
+		t.Fatalf("unexpected peers: %+v", resp)
+	}
+}
+
+func TestSessionPollingErrors(t *testing.T) {
+	resetSignals()
+	mux := newMux()
+
+	t.Run("method not allowed", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/signal/session/s1", nil)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		if rec.Code != http.StatusMethodNotAllowed {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
+		}
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/signal/session/none", nil)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+		}
+	})
+}

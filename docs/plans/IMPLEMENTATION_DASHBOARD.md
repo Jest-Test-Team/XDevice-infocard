@@ -122,3 +122,12 @@ Implement executable scaffolds for all 4 plans under `implementations/` with non
 ### Verification
 - `implementations/02-nearby-connections/nearby-card-drop/signaling-server`: `go test ./...` PASS
 - `implementations/01-ultrasonic-data-transfer/core-dsp`: `cargo test` PASS (8 passed)
+
+## Continuation Batch 8 (2026-05-07)
+- Plan 02 signaling server: added polling endpoint `GET /signal/session/{sessionId}` to inspect whether offer/answer are present and which peers provided them.
+- Plan 02 tests: added session polling happy-path and error-path coverage.
+- Plan 03 tests: added decoder validation for mixed `payload_len` metadata and `total=0` invalid symbols.
+
+### Verification
+- `implementations/02-nearby-connections/nearby-card-drop/signaling-server`: `go test ./...` PASS
+- `implementations/03-animated-qr-visual-handshake/fountain-core`: `cargo test` PASS (9 passed)
