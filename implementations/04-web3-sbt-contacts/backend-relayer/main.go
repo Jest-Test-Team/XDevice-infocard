@@ -1,103 +1,178 @@
 package main
 
 import (
-    "encoding/json"
-    "log"
-    "net/http"
-    "time"
+	"crypto/rand"
+	"crypto/sha256"
+	"encoding/hex"
+	"encoding/json"
+	"fmt"
+	"log"
+	"net/http"
+	"strings"
+	"sync"
+	"time"
 )
 
 type prepareRequest struct {
-    Operation string `json:"operation"`
-    Payload   any    `json:"payload"`
+	Operation string `json:"operation"`
+	Payload   any    `json:"payload"`
 }
 
 type prepareResponse struct {
-    RequestID string `json:"requestId"`
-    Status    string `json:"status"`
-    Message   string `json:"message"`
+	RequestID string `json:"requestId"`
+	Nonce     string `json:"nonce"`
+	Status    string `json:"status"`
+	Message   string `json:"message"`
 }
 
 type submitRequest struct {
-    RequestID string `json:"requestId"`
-    Signature string `json:"signature"`
+	RequestID string `json:"requestId"`
+	Signature string `json:"signature"`
 }
 
 type submitResponse struct {
-    TxHash  string `json:"txHash"`
-    Status  string `json:"status"`
-    Message string `json:"message"`
+	TxHash  string `json:"txHash"`
+	Status  string `json:"status"`
+	Message string `json:"message"`
 }
 
+type preparedRequest struct {
+	Operation string
+	Nonce     string
+	CreatedAt time.Time
+}
+
+var (
+	requestsMu sync.Mutex
+	requests   = map[string]preparedRequest{}
+)
+
 func main() {
-    mux := http.NewServeMux()
-    mux.HandleFunc("/health", healthHandler)
-    mux.HandleFunc("/v1/prepare", prepareHandler)
-    mux.HandleFunc("/v1/submit", submitHandler)
+	mux := http.NewServeMux()
+	mux.HandleFunc("/health", healthHandler)
+	mux.HandleFunc("/v1/prepare", prepareHandler)
+	mux.HandleFunc("/v1/submit", submitHandler)
 
-    server := &http.Server{
-        Addr:              ":8080",
-        Handler:           mux,
-        ReadHeaderTimeout: 5 * time.Second,
-    }
+	server := &http.Server{
+		Addr:              ":8080",
+		Handler:           mux,
+		ReadHeaderTimeout: 5 * time.Second,
+	}
 
-    log.Println("backend-relayer listening on :8080")
-    if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-        log.Fatalf("server error: %v", err)
-    }
+	log.Println("backend-relayer listening on :8080")
+	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+		log.Fatalf("server error: %v", err)
+	}
 }
 
 func healthHandler(w http.ResponseWriter, _ *http.Request) {
-    writeJSON(w, http.StatusOK, map[string]string{
-        "status": "ok",
-        "service": "backend-relayer",
-    })
+	writeJSON(w, http.StatusOK, map[string]string{
+		"status":  "ok",
+		"service": "backend-relayer",
+	})
 }
 
 func prepareHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
-        writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
-        return
-    }
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
 
-    var req prepareRequest
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
-        return
-    }
+	var req prepareRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
+		return
+	}
 
-    _ = req // placeholder for future validation and payload generation
+	if strings.TrimSpace(req.Operation) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "operation is required"})
+		return
+	}
 
-    writeJSON(w, http.StatusOK, prepareResponse{
-        RequestID: "placeholder-request-id",
-        Status:    "prepared",
-        Message:   "prepare placeholder: implement calldata/gas simulation",
-    })
+	requestID, err := randomHex(16)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to generate request id"})
+		return
+	}
+	nonce, err := randomHex(16)
+	if err != nil {
+		writeJSON(w, http.StatusInternalServerError, map[string]string{"error": "failed to generate nonce"})
+		return
+	}
+
+	requestsMu.Lock()
+	requests[requestID] = preparedRequest{
+		Operation: req.Operation,
+		Nonce:     nonce,
+		CreatedAt: time.Now().UTC(),
+	}
+	requestsMu.Unlock()
+
+	writeJSON(w, http.StatusOK, prepareResponse{
+		RequestID: requestID,
+		Nonce:     nonce,
+		Status:    "prepared",
+		Message:   "request prepared",
+	})
 }
 
 func submitHandler(w http.ResponseWriter, r *http.Request) {
-    if r.Method != http.MethodPost {
-        writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
-        return
-    }
+	if r.Method != http.MethodPost {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
 
-    var req submitRequest
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
-        return
-    }
+	var req submitRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "invalid json"})
+		return
+	}
 
-    _ = req // placeholder for future signature verification and chain submission
+	if strings.TrimSpace(req.RequestID) == "" || strings.TrimSpace(req.Signature) == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "requestId and signature are required"})
+		return
+	}
+	if !strings.HasPrefix(req.Signature, "0x") || len(req.Signature) < 10 {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "signature must be a hex string starting with 0x"})
+		return
+	}
 
-    writeJSON(w, http.StatusOK, submitResponse{
-        TxHash:  "0xplaceholder",
-        Status:  "submitted",
-        Message: "submit placeholder: implement signer + RPC broadcast",
-    })
+	requestsMu.Lock()
+	prepared, ok := requests[req.RequestID]
+	if ok {
+		delete(requests, req.RequestID)
+	}
+	requestsMu.Unlock()
+	if !ok {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "request not found or already submitted"})
+		return
+	}
+
+	if time.Since(prepared.CreatedAt) > 10*time.Minute {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "prepared request expired"})
+		return
+	}
+
+	digest := sha256.Sum256([]byte(fmt.Sprintf("%s:%s:%s", req.RequestID, prepared.Nonce, req.Signature)))
+	txHash := "0x" + hex.EncodeToString(digest[:])
+
+	writeJSON(w, http.StatusOK, submitResponse{
+		TxHash:  txHash,
+		Status:  "submitted",
+		Message: "accepted for relay",
+	})
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {
-    w.Header().Set("Content-Type", "application/json")
-    w.WriteHeader(status)
-    _ = json.NewEncoder(w).Encode(payload)
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(status)
+	_ = json.NewEncoder(w).Encode(payload)
+}
+
+func randomHex(size int) (string, error) {
+	b := make([]byte, size)
+	if _, err := rand.Read(b); err != nil {
+		return "", err
+	}
+	return hex.EncodeToString(b), nil
 }

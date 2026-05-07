@@ -12,23 +12,49 @@ class NearbyStateMachine {
   NearbyContext dispatch(NearbyEvent event) {
     final current = _context;
 
-    switch (event) {
-      case InitializeRequested():
-        _context = current.copyWith(state: NearbyState.initializing, error: null);
-      case StartDiscoveryRequested():
+    if (event is InitializeRequested) {
+      _context = current.copyWith(state: NearbyState.initializing, error: null);
+      return _context;
+    }
+
+    if (event is StartDiscoveryRequested) {
+      if (current.state == NearbyState.initializing || current.state == NearbyState.idle) {
         _context = current.copyWith(state: NearbyState.discovering, error: null);
-      case PeerSelected(:final peerId):
-        _context = current.copyWith(state: NearbyState.connecting, activePeerId: peerId, error: null);
-      case TransferRequested(:final transferId):
+      }
+      return _context;
+    }
+
+    if (event is PeerSelected) {
+      if (current.state == NearbyState.discovering) {
         _context = current.copyWith(
-          state: NearbyState.transferring,
-          activeTransferId: transferId,
+          state: NearbyState.connecting,
+          activePeerId: event.peerId,
           error: null,
         );
-      case TransferCompleted():
+      }
+      return _context;
+    }
+
+    if (event is TransferRequested) {
+      if (current.state == NearbyState.connecting || current.state == NearbyState.connected) {
+        _context = current.copyWith(
+          state: NearbyState.transferring,
+          activeTransferId: event.transferId,
+          error: null,
+        );
+      }
+      return _context;
+    }
+
+    if (event is TransferCompleted) {
+      if (current.state == NearbyState.transferring && current.activeTransferId == event.transferId) {
         _context = current.copyWith(state: NearbyState.completed);
-      case FailureObserved(:final message):
-        _context = current.copyWith(state: NearbyState.error, error: message);
+      }
+      return _context;
+    }
+
+    if (event is FailureObserved) {
+      _context = current.copyWith(state: NearbyState.error, error: event.message);
     }
 
     return _context;

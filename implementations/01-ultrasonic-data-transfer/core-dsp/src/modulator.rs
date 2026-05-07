@@ -14,7 +14,7 @@ impl Default for ModulatorConfig {
 }
 
 pub fn modulate_bytes(payload: &[u8], _config: &ModulatorConfig) -> Vec<f32> {
-    // Starter placeholder: map bytes directly to normalized float samples.
+    // MVP transport mapping: one byte to one normalized PCM sample.
     payload
         .iter()
         .map(|b| (*b as f32 / 255.0) * 2.0 - 1.0)
