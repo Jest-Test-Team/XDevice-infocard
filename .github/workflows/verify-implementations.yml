@@ -1,0 +1,88 @@
+name: Verify Implementations
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  plan01-rust:
+    name: Plan01 Rust Core DSP
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run tests
+        working-directory: implementations/01-ultrasonic-data-transfer/core-dsp
+        run: cargo test --all-targets --all-features
+
+  plan02-go:
+    name: Plan02 Signaling Server
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - name: Run tests
+        working-directory: implementations/02-nearby-connections/nearby-card-drop/signaling-server
+        run: go test ./...
+
+  plan03-rust:
+    name: Plan03 Fountain + Tools
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+      - name: Run fountain-core tests
+        working-directory: implementations/03-animated-qr-visual-handshake/fountain-core
+        run: cargo test --all-targets --all-features
+      - name: Build replay benchmark
+        working-directory: implementations/03-animated-qr-visual-handshake/tools/replay-benchmark
+        run: cargo build --release
+      - name: Run QR frame generator smoke
+        run: |
+          python3 implementations/03-animated-qr-visual-handshake/tools/qr-frame-generator/generate_frames.py \
+            --text "hello" --frame-size 3 --transfer-id test --output /tmp/qr_frames.txt
+          test -s /tmp/qr_frames.txt
+
+  plan04-go:
+    name: Plan04 Relayer Go
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.23.x'
+      - name: Run relayer unit tests
+        working-directory: implementations/04-web3-sbt-contacts/backend-relayer
+        run: go test ./...
+      - name: Run relayer HTTP e2e script
+        working-directory: implementations/04-web3-sbt-contacts
+        run: ./scripts/relayer_e2e.sh
+
+  plan04-solidity:
+    name: Plan04 Solidity Foundry
+    runs-on: ubuntu-latest
+    env:
+      FOUNDRY_PROFILE: ci
+    steps:
+      - uses: actions/checkout@v5
+      - name: Install Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+      - name: Show forge version
+        run: forge --version
+      - name: Run forge build
+        working-directory: implementations/04-web3-sbt-contacts/contracts
+        run: forge build
+      - name: Run forge tests
+        working-directory: implementations/04-web3-sbt-contacts/contracts
+        run: forge test -vv

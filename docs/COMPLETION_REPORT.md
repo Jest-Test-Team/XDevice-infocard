@@ -45,3 +45,12 @@ A coordinated multi-agent implementation round was completed across all four pla
 
 ## Operational Note
 - Some tracked binary artifacts may still appear modified due environment restrictions on git index operations; source-level implementation and tests are complete for this round.
+
+## Blocker Mitigations Implemented (2026-05-07)
+- Added GitHub Actions workflow `.github/workflows/verify-implementations.yml` to execute Solidity tests in CI using Foundry and to run bind-based relayer E2E on GitHub runners.
+- Added local Docker fallback for Solidity test execution:
+  - `implementations/04-web3-sbt-contacts/scripts/solidity_test_via_docker.sh`
+- Added sandbox-safe no-bind relayer verification fallback:
+  - `implementations/04-web3-sbt-contacts/scripts/relayer_e2e_no_bind.sh`
+- Added pipeline documentation:
+  - `docs/CI_CD_PIPELINE.md`
