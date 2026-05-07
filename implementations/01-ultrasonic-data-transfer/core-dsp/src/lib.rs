@@ -5,7 +5,9 @@ pub mod protocol;
 
 pub use demodulator::{demodulate_samples, DemodulatorConfig};
 pub use modulator::{modulate_bytes, ModulatorConfig};
-pub use protocol::{decode_payload, encode_payload, ProtocolError};
+pub use protocol::{
+    decode_payload, decode_payload_bytes, encode_payload, encode_payload_bytes, ProtocolError,
+};
 
 #[cfg(test)]
 mod tests {
@@ -27,6 +29,14 @@ mod tests {
         let input: Vec<u8> = (0..=255).collect();
         let samples = modulate_bytes(&input, &ModulatorConfig::default());
         let output = demodulate_samples(&samples, &DemodulatorConfig::default());
+        assert_eq!(input, output);
+    }
+
+    #[test]
+    fn round_trip_binary_payload() {
+        let input: Vec<u8> = (0..=255).rev().collect();
+        let frame = encode_payload_bytes(&input).expect("encode should succeed");
+        let output = decode_payload_bytes(&frame).expect("decode should succeed");
         assert_eq!(input, output);
     }
 }
