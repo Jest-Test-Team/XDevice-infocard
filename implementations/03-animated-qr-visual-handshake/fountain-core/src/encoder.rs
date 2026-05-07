@@ -8,10 +8,13 @@ pub fn encode(payload: &[u8], frame_size: usize) -> Vec<Symbol> {
     let data_total = payload.len().div_ceil(frame_size) as u32;
     let total = data_total + 1;
     let transfer_id = transfer_id_for(payload);
+    let payload_len = payload.len();
     let mut symbols: Vec<Symbol> = payload
         .chunks(frame_size)
         .enumerate()
-        .map(|(index, chunk)| Symbol::new(transfer_id, index as u32, total, chunk.to_vec()))
+        .map(|(index, chunk)| {
+            Symbol::new(transfer_id, payload_len, index as u32, total, chunk.to_vec())
+        })
         .collect();
 
     // Add one parity symbol so decoder can recover one missing data chunk.
@@ -42,5 +45,5 @@ fn build_parity_symbol(
             parity[i] ^= *b;
         }
     }
-    Symbol::new(transfer_id, data_total, total, parity)
+    Symbol::new(transfer_id, payload.len(), data_total, total, parity)
 }

@@ -39,6 +39,7 @@ type submitResponse struct {
 type txStatusResponse struct {
 	TxHash    string `json:"txHash"`
 	RequestID string `json:"requestId"`
+	Operation string `json:"operation"`
 	Status    string `json:"status"`
 }
 
@@ -175,6 +176,7 @@ func submitHandler(w http.ResponseWriter, r *http.Request) {
 	txStatus[txHash] = txStatusResponse{
 		TxHash:    txHash,
 		RequestID: req.RequestID,
+		Operation: prepared.Operation,
 		Status:    "submitted",
 	}
 	txMu.Unlock()

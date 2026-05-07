@@ -85,6 +85,9 @@ func TestPrepareAndSubmitHappyPath(t *testing.T) {
 	if txResp.TxHash != submitResp.TxHash || txResp.RequestID != prepareResp.RequestID {
 		t.Fatalf("tx status response mismatch: %+v", txResp)
 	}
+	if txResp.Operation != "connect" {
+		t.Fatalf("tx operation = %q, want connect", txResp.Operation)
+	}
 }
 
 func TestPrepareHandlerErrors(t *testing.T) {

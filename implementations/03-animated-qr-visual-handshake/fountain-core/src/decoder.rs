@@ -13,6 +13,7 @@ pub fn decode(symbols: &[Symbol]) -> Result<Vec<u8>, &'static str> {
     }
     let data_total = expected_total - 1;
     let transfer_id = first.transfer_id;
+    let payload_len = first.payload_len;
 
     let mut ordered: BTreeMap<u32, &Symbol> = BTreeMap::new();
     let mut parity: Option<&Symbol> = None;
@@ -22,6 +23,9 @@ pub fn decode(symbols: &[Symbol]) -> Result<Vec<u8>, &'static str> {
         }
         if symbol.transfer_id != transfer_id {
             return Err("mixed transfer ids");
+        }
+        if symbol.payload_len != payload_len {
+            return Err("mixed payload lengths");
         }
         if symbol.sequence >= expected_total {
             return Err("invalid sequence");
@@ -46,7 +50,7 @@ pub fn decode(symbols: &[Symbol]) -> Result<Vec<u8>, &'static str> {
     }
 
     if ordered.len() as u32 == data_total {
-        return assemble_output(&ordered, data_total);
+        return assemble_output(&ordered, data_total, payload_len);
     }
 
     if ordered.len() as u32 + 1 == data_total {
@@ -60,7 +64,7 @@ pub fn decode(symbols: &[Symbol]) -> Result<Vec<u8>, &'static str> {
             owned.insert(k, v.data.clone());
         }
         owned.insert(missing_sequence, recovered);
-        return assemble_output_owned(&owned, data_total);
+        return assemble_output_owned(&owned, data_total, payload_len);
     }
 
     Err("incomplete symbol set")
@@ -83,30 +87,36 @@ fn recover_missing_chunk(
     recovered
 }
 
-fn assemble_output(ordered: &BTreeMap<u32, &Symbol>, data_total: u32) -> Result<Vec<u8>, &'static str> {
+fn assemble_output(
+    ordered: &BTreeMap<u32, &Symbol>,
+    data_total: u32,
+    payload_len: usize,
+) -> Result<Vec<u8>, &'static str> {
     let mut output = Vec::new();
     for expected in 0..data_total {
         let symbol = ordered.get(&expected).ok_or("missing sequence")?;
         output.extend_from_slice(&symbol.data);
     }
-    Ok(trim_trailing_padding(output))
+    if output.len() < payload_len {
+        return Err("payload length mismatch");
+    }
+    output.truncate(payload_len);
+    Ok(output)
 }
 
 fn assemble_output_owned(
     ordered: &BTreeMap<u32, Vec<u8>>,
     data_total: u32,
+    payload_len: usize,
 ) -> Result<Vec<u8>, &'static str> {
     let mut output = Vec::new();
     for expected in 0..data_total {
         let symbol = ordered.get(&expected).ok_or("missing sequence")?;
         output.extend_from_slice(symbol);
     }
-    Ok(trim_trailing_padding(output))
-}
-
-fn trim_trailing_padding(mut output: Vec<u8>) -> Vec<u8> {
-    while output.last().copied() == Some(0) {
-        output.pop();
+    if output.len() < payload_len {
+        return Err("payload length mismatch");
     }
-    output
+    output.truncate(payload_len);
+    Ok(output)
 }

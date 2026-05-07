@@ -81,3 +81,13 @@ Implement executable scaffolds for all 4 plans under `implementations/` with non
 
 ### Notes
 - Go test in sandbox requires writable cache path, executed with `GOCACHE=/tmp/go-build-cache`.
+
+## Continuation Batch 4 (2026-05-07)
+- Plan 01 (`core-dsp`): moved from byte-to-sample mapping to bit-symbol modulation/demodulation using configurable samples-per-bit derived from `sample_rate_hz/symbol_rate_bps`.
+- Plan 03 (`fountain-core`): added explicit `payload_len` metadata in symbols and decoder now truncates reconstructed payload by declared length (instead of trimming trailing zero bytes), preserving legitimate binary endings.
+- Plan 04 (`backend-relayer`): transaction status now records operation and exposes it via `GET /v1/tx/{hash}`.
+
+### Verification
+- `implementations/01-ultrasonic-data-transfer/core-dsp`: `cargo test` PASS (6 passed)
+- `implementations/03-animated-qr-visual-handshake/fountain-core`: `cargo test` PASS (7 passed)
+- `implementations/04-web3-sbt-contacts/backend-relayer`: `go test ./...` PASS
