@@ -6,7 +6,7 @@
           <div class="brand-kicker">XDEVICE INFOSYSTEM</div>
           <q-toolbar-title class="brand-title">InfoCard Transfer Lab</q-toolbar-title>
         </div>
-        <q-chip dense class="build-chip reveal r2">Quasar + NothingX React</q-chip>
+        <q-chip dense class="build-chip reveal r2">Lab Prototype</q-chip>
       </q-toolbar>
     </q-header>
 
@@ -31,7 +31,7 @@
               </div>
             </div>
           </div>
-          <ReactNothingPanel class="hero-react" title="SYSTEM STATE" subtitle="Cross-protocol reliability" :value="82" />
+          <ReactNothingPanel class="hero-react" title="SYSTEM STATE" subtitle="Cross‑protocol reliability" :value="82" />
         </section>
 
         <section class="projects-grid">
