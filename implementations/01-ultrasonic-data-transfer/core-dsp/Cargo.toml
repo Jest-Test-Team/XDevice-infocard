@@ -1,0 +1,13 @@
+[package]
+name = "core-dsp"
+version = "0.1.0"
+edition = "2021"
+description = "Starter DSP core for sonic card exchange"
+license = "MIT"
+
+[lib]
+name = "core_dsp"
+path = "src/lib.rs"
+
+[dependencies]
+

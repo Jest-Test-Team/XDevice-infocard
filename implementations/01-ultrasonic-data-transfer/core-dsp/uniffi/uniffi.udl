@@ -1,0 +1,14 @@
+namespace sonic_card_exchange {
+  [Throws=ProtocolError]
+  bytes encode_payload(string payload);
+
+  [Throws=ProtocolError]
+  string decode_payload(bytes frame);
+
+  [Error]
+  enum ProtocolError {
+    "InvalidFrame",
+    "InvalidUtf8",
+    "PayloadTooLarge",
+  };
+};

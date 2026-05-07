@@ -1,0 +1,15 @@
+version: "3.9"
+
+services:
+  backend-relayer:
+    build:
+      context: ../backend-relayer
+      dockerfile: Dockerfile
+    ports:
+      - "8080:8080"
+    environment:
+      - LOG_LEVEL=info
+    restart: unless-stopped
+
+# Placeholder compose file for local orchestration.
+# Add chain simulator (e.g., anvil/hardhat node), indexer, and observability services as needed.
