@@ -20,15 +20,17 @@ type prepareRequest struct {
 }
 
 type prepareResponse struct {
-	RequestID string `json:"requestId"`
-	Nonce     string `json:"nonce"`
-	Status    string `json:"status"`
-	Message   string `json:"message"`
+	RequestID string            `json:"requestId"`
+	Nonce     string            `json:"nonce"`
+	Status    string            `json:"status"`
+	Message   string            `json:"message"`
+	Signable  signableTypedData `json:"signable"`
 }
 
 type submitRequest struct {
-	RequestID string `json:"requestId"`
-	Signature string `json:"signature"`
+	RequestID string            `json:"requestId"`
+	Signature string            `json:"signature"`
+	Signable  signableTypedData `json:"signable"`
 }
 
 type submitResponse struct {
@@ -47,7 +49,33 @@ type txStatusResponse struct {
 type preparedRequest struct {
 	Operation string
 	Nonce     string
+	Signable  signableTypedData
 	CreatedAt time.Time
+}
+
+type signableTypedData struct {
+	PrimaryType string                      `json:"primaryType"`
+	Domain      signableTypedDataDomain     `json:"domain"`
+	Types       map[string][]signableMember `json:"types"`
+	Message     signableMessage             `json:"message"`
+}
+
+type signableTypedDataDomain struct {
+	Name              string `json:"name"`
+	Version           string `json:"version"`
+	ChainID           string `json:"chainId"`
+	VerifyingContract string `json:"verifyingContract"`
+}
+
+type signableMember struct {
+	Name string `json:"name"`
+	Type string `json:"type"`
+}
+
+type signableMessage struct {
+	RequestID string `json:"requestId"`
+	Operation string `json:"operation"`
+	Nonce     string `json:"nonce"`
 }
 
 var (
@@ -120,9 +148,11 @@ func prepareHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	requestsMu.Lock()
+	signable := buildSignableTypedData(requestID, req.Operation, nonce)
 	requests[requestID] = preparedRequest{
 		Operation: req.Operation,
 		Nonce:     nonce,
+		Signable:  signable,
 		CreatedAt: time.Now().UTC(),
 	}
 	requestsMu.Unlock()
@@ -132,6 +162,7 @@ func prepareHandler(w http.ResponseWriter, r *http.Request) {
 		Nonce:     nonce,
 		Status:    "prepared",
 		Message:   "request prepared",
+		Signable:  signable,
 	})
 }
 
@@ -173,6 +204,10 @@ func submitHandler(w http.ResponseWriter, r *http.Request) {
 
 	if time.Since(prepared.CreatedAt) > 10*time.Minute {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "prepared request expired"})
+		return
+	}
+	if err := validateSignable(req.Signable, prepared.Signable, req.RequestID); err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
 
@@ -236,4 +271,74 @@ func isAllowedOperation(op string) bool {
 	default:
 		return false
 	}
+}
+
+func buildSignableTypedData(requestID, operation, nonce string) signableTypedData {
+	return signableTypedData{
+		PrimaryType: "ContactOperation",
+		Domain: signableTypedDataDomain{
+			Name:              "Web3SBTContactsRelayer",
+			Version:           "1",
+			ChainID:           "0",
+			VerifyingContract: "0x0000000000000000000000000000000000000000",
+		},
+		Types: map[string][]signableMember{
+			"EIP712Domain": {
+				{Name: "name", Type: "string"},
+				{Name: "version", Type: "string"},
+				{Name: "chainId", Type: "uint256"},
+				{Name: "verifyingContract", Type: "address"},
+			},
+			"ContactOperation": {
+				{Name: "requestId", Type: "string"},
+				{Name: "operation", Type: "string"},
+				{Name: "nonce", Type: "string"},
+			},
+		},
+		Message: signableMessage{
+			RequestID: requestID,
+			Operation: operation,
+			Nonce:     nonce,
+		},
+	}
+}
+
+func validateSignable(actual, expected signableTypedData, requestID string) error {
+	if actual.PrimaryType == "" || actual.Domain.Name == "" || len(actual.Types) == 0 || actual.Message.RequestID == "" {
+		return fmt.Errorf("signable payload is required")
+	}
+	if actual.PrimaryType != expected.PrimaryType {
+		return fmt.Errorf("signable primaryType mismatch")
+	}
+	if actual.Domain != expected.Domain {
+		return fmt.Errorf("signable domain mismatch")
+	}
+	if !sameTypes(actual.Types, expected.Types) {
+		return fmt.Errorf("signable types mismatch")
+	}
+	if actual.Message != expected.Message {
+		return fmt.Errorf("signable message mismatch")
+	}
+	if actual.Message.RequestID != requestID {
+		return fmt.Errorf("signable requestId mismatch")
+	}
+	return nil
+}
+
+func sameTypes(actual, expected map[string][]signableMember) bool {
+	if len(actual) != len(expected) {
+		return false
+	}
+	for key, expectedMembers := range expected {
+		actualMembers, ok := actual[key]
+		if !ok || len(actualMembers) != len(expectedMembers) {
+			return false
+		}
+		for i := range expectedMembers {
+			if actualMembers[i] != expectedMembers[i] {
+				return false
+			}
+		}
+	}
+	return true
 }

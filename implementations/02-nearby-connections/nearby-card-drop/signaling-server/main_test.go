@@ -218,3 +218,81 @@ func TestSessionDeleteLifecycle(t *testing.T) {
 		t.Fatalf("second delete status = %d, want %d", delAgainRec.Code, http.StatusNotFound)
 	}
 }
+
+func TestSessionSdpEndpoint(t *testing.T) {
+	resetSignals()
+	mux := newMux()
+
+	offer := `{"sessionId":"sess-sdp","sdp":"offer-sdp","fromPeer":"alice"}`
+	offerReq := httptest.NewRequest(http.MethodPost, "/signal/offer", bytes.NewBufferString(offer))
+	offerRec := httptest.NewRecorder()
+	mux.ServeHTTP(offerRec, offerReq)
+	if offerRec.Code != http.StatusAccepted {
+		t.Fatalf("offer status = %d, want %d", offerRec.Code, http.StatusAccepted)
+	}
+
+	answer := `{"sessionId":"sess-sdp","sdp":"answer-sdp","fromPeer":"bob"}`
+	answerReq := httptest.NewRequest(http.MethodPost, "/signal/answer", bytes.NewBufferString(answer))
+	answerRec := httptest.NewRecorder()
+	mux.ServeHTTP(answerRec, answerReq)
+	if answerRec.Code != http.StatusAccepted {
+		t.Fatalf("answer status = %d, want %d", answerRec.Code, http.StatusAccepted)
+	}
+
+	req := httptest.NewRequest(http.MethodGet, "/signal/sdp/sess-sdp", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("sdp status = %d, want %d", rec.Code, http.StatusOK)
+	}
+
+	var resp sessionSdpResponse
+	if err := json.NewDecoder(rec.Body).Decode(&resp); err != nil {
+		t.Fatalf("decode sdp response: %v", err)
+	}
+	if resp.SessionID != "sess-sdp" {
+		t.Fatalf("sessionId = %q, want %q", resp.SessionID, "sess-sdp")
+	}
+	if resp.OfferSdp != "offer-sdp" || resp.AnswerSdp != "answer-sdp" {
+		t.Fatalf("unexpected sdp payloads: %+v", resp)
+	}
+}
+
+func TestSessionSdpEndpointErrors(t *testing.T) {
+	resetSignals()
+	mux := newMux()
+
+	t.Run("method not allowed", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/signal/sdp/s1", nil)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		if rec.Code != http.StatusMethodNotAllowed {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
+		}
+		if allow := rec.Header().Get("Allow"); allow != http.MethodGet {
+			t.Fatalf("allow = %q, want %q", allow, http.MethodGet)
+		}
+	})
+
+	t.Run("not found", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/signal/sdp/none", nil)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+		}
+	})
+
+	t.Run("session exists but no sdp", func(t *testing.T) {
+		signalsMu.Lock()
+		signals["empty-sdp"] = signalRecord{}
+		signalsMu.Unlock()
+
+		req := httptest.NewRequest(http.MethodGet, "/signal/sdp/empty-sdp", nil)
+		rec := httptest.NewRecorder()
+		mux.ServeHTTP(rec, req)
+		if rec.Code != http.StatusNotFound {
+			t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
+		}
+	})
+}

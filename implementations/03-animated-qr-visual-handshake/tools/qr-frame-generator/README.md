@@ -1,8 +1,17 @@
 # QR Frame Generator
 
-Placeholder scaffold for tooling that converts encoded symbols into animated QR frame sequences.
+Runnable utility to chunk input into frame payload strings suitable for animated QR transport.
 
-Planned responsibilities:
-- Take encoded symbols as input.
-- Render deterministic QR frames with metadata overlays.
-- Export replayable frame timelines.
+## Usage
+
+```bash
+python3 tools/qr-frame-generator/generate_frames.py --text "visual-handshake" --frame-bytes 5
+```
+
+```bash
+python3 tools/qr-frame-generator/generate_frames.py --base64 "AAECAwQFAA==" --format plain
+```
+
+Output format `jsonl` emits rows with metadata + `payload_string` in this shape:
+
+`xhv1:<transfer_id>:<payload_len>:<sequence>:<total>:<chunk_b64>`

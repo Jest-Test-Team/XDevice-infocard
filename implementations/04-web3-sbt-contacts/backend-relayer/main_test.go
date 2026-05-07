@@ -43,10 +43,26 @@ func TestPrepareAndSubmitHappyPath(t *testing.T) {
 	if prepareResp.RequestID == "" || prepareResp.Nonce == "" {
 		t.Fatalf("prepare response missing requestId/nonce: %+v", prepareResp)
 	}
+	if prepareResp.Signable.PrimaryType != "ContactOperation" {
+		t.Fatalf("primaryType = %q, want ContactOperation", prepareResp.Signable.PrimaryType)
+	}
+	if prepareResp.Signable.Domain.Name != "Web3SBTContactsRelayer" {
+		t.Fatalf("domain.name = %q, want Web3SBTContactsRelayer", prepareResp.Signable.Domain.Name)
+	}
+	if prepareResp.Signable.Domain.ChainID != "0" {
+		t.Fatalf("domain.chainId = %q, want 0", prepareResp.Signable.Domain.ChainID)
+	}
+	if len(prepareResp.Signable.Types["EIP712Domain"]) != 4 || len(prepareResp.Signable.Types["ContactOperation"]) != 3 {
+		t.Fatalf("unexpected signable types: %+v", prepareResp.Signable.Types)
+	}
+	if prepareResp.Signable.Message.RequestID != prepareResp.RequestID || prepareResp.Signable.Message.Nonce != prepareResp.Nonce {
+		t.Fatalf("signable.message mismatch: %+v", prepareResp.Signable.Message)
+	}
 
 	submitPayload := submitRequest{
 		RequestID: prepareResp.RequestID,
 		Signature: "0x1234abcd90",
+		Signable:  prepareResp.Signable,
 	}
 	submitJSON, err := json.Marshal(submitPayload)
 	if err != nil {
@@ -169,7 +185,7 @@ func TestSubmitHandlerErrors(t *testing.T) {
 	})
 
 	t.Run("missing requestId or signature", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/v1/submit", strings.NewReader(`{"requestId":"","signature":""}`))
+		req := httptest.NewRequest(http.MethodPost, "/v1/submit", strings.NewReader(`{"requestId":"","signature":"","signable":{}}`))
 		rec := httptest.NewRecorder()
 		submitHandler(rec, req)
 		assertErrorResponse(t, rec, http.StatusBadRequest, "requestId and signature are required")
@@ -190,7 +206,7 @@ func TestSubmitHandlerErrors(t *testing.T) {
 	})
 
 	t.Run("request not found", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/v1/submit", strings.NewReader(`{"requestId":"missing","signature":"0x1234abcd90"}`))
+		req := httptest.NewRequest(http.MethodPost, "/v1/submit", strings.NewReader(`{"requestId":"missing","signature":"0x1234abcd90","signable":{"primaryType":"ContactOperation","domain":{"name":"Web3SBTContactsRelayer","version":"1","chainId":"0","verifyingContract":"0x0000000000000000000000000000000000000000"},"types":{"EIP712Domain":[{"name":"name","type":"string"},{"name":"version","type":"string"},{"name":"chainId","type":"uint256"},{"name":"verifyingContract","type":"address"}],"ContactOperation":[{"name":"requestId","type":"string"},{"name":"operation","type":"string"},{"name":"nonce","type":"string"}]},"message":{"requestId":"missing","operation":"connect","nonce":"x"}}}`))
 		rec := httptest.NewRecorder()
 		submitHandler(rec, req)
 		assertErrorResponse(t, rec, http.StatusNotFound, "request not found or already submitted")
@@ -210,6 +226,51 @@ func TestSubmitHandlerErrors(t *testing.T) {
 		rec := httptest.NewRecorder()
 		submitHandler(rec, req)
 		assertErrorResponse(t, rec, http.StatusBadRequest, "prepared request expired")
+	})
+
+	t.Run("missing signable payload", func(t *testing.T) {
+		resetRequests()
+		requestsMu.Lock()
+		requests["ready-id"] = preparedRequest{
+			Operation: "connect",
+			Nonce:     "00112233",
+			Signable:  buildSignableTypedData("ready-id", "connect", "00112233"),
+			CreatedAt: time.Now().UTC(),
+		}
+		requestsMu.Unlock()
+
+		req := httptest.NewRequest(http.MethodPost, "/v1/submit", strings.NewReader(`{"requestId":"ready-id","signature":"0x1234abcd90","signable":{}}`))
+		rec := httptest.NewRecorder()
+		submitHandler(rec, req)
+		assertErrorResponse(t, rec, http.StatusBadRequest, "signable payload is required")
+	})
+
+	t.Run("signable message mismatch", func(t *testing.T) {
+		resetRequests()
+		signable := buildSignableTypedData("ready-id", "connect", "00112233")
+		requestsMu.Lock()
+		requests["ready-id"] = preparedRequest{
+			Operation: "connect",
+			Nonce:     "00112233",
+			Signable:  signable,
+			CreatedAt: time.Now().UTC(),
+		}
+		requestsMu.Unlock()
+
+		signable.Message.Operation = "exchange"
+		payload := submitRequest{
+			RequestID: "ready-id",
+			Signature: "0x1234abcd90",
+			Signable:  signable,
+		}
+		body, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("marshal payload: %v", err)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/v1/submit", bytes.NewReader(body))
+		rec := httptest.NewRecorder()
+		submitHandler(rec, req)
+		assertErrorResponse(t, rec, http.StatusBadRequest, "signable message mismatch")
 	})
 }
 
@@ -254,16 +315,24 @@ func TestSubmitRequestIsSingleUse(t *testing.T) {
 		t.Fatalf("decode prepare response: %v", err)
 	}
 
-	submitBody := `{"requestId":"` + prepareResp.RequestID + `","signature":"0x1234abcd90"}`
+	payload := submitRequest{
+		RequestID: prepareResp.RequestID,
+		Signature: "0x1234abcd90",
+		Signable:  prepareResp.Signable,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		t.Fatalf("marshal submit payload: %v", err)
+	}
 
-	firstReq := httptest.NewRequest(http.MethodPost, "/v1/submit", strings.NewReader(submitBody))
+	firstReq := httptest.NewRequest(http.MethodPost, "/v1/submit", bytes.NewReader(body))
 	firstRec := httptest.NewRecorder()
 	submitHandler(firstRec, firstReq)
 	if firstRec.Code != http.StatusOK {
 		t.Fatalf("first submit status = %d, want %d", firstRec.Code, http.StatusOK)
 	}
 
-	secondReq := httptest.NewRequest(http.MethodPost, "/v1/submit", strings.NewReader(submitBody))
+	secondReq := httptest.NewRequest(http.MethodPost, "/v1/submit", bytes.NewReader(body))
 	secondRec := httptest.NewRecorder()
 	submitHandler(secondRec, secondReq)
 	assertErrorResponse(t, secondRec, http.StatusNotFound, "request not found or already submitted")

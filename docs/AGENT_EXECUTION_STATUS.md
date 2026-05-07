@@ -13,7 +13,7 @@ Complete remaining high-priority implementation tasks in parallel across all 4 p
 - Worker Plan 04: `implementations/04-web3-sbt-contacts`
 
 ## Live Status
-- Plan 01 worker: In progress
-- Plan 02 worker: In progress
-- Plan 03 worker: In progress
-- Plan 04 worker: In progress
+- Plan 01 worker: Completed (FSK-like modem + tests)
+- Plan 02 worker: Completed (Flutter scaffold + bridge schema + signaling extensions)
+- Plan 03 worker: Completed (frame generator + replay benchmark + tests)
+- Plan 04 worker: Completed (EIP-712-like signable flow + tests)

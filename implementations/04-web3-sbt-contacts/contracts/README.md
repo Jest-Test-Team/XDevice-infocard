@@ -7,16 +7,22 @@ This folder contains minimal Solidity scaffolding for Plan 04:
 
 ## Foundry Notes
 
-Suggested starter commands:
+Once Foundry is installed, run these exact commands from this folder:
 
 ```bash
-forge init contracts
-cd contracts
+cd implementations/04-web3-sbt-contacts/contracts
+forge --version
 forge build
-forge test
+forge test -vv
+forge test --match-path test/SBTProfile.t.sol -vv
+forge test --match-path test/ConnectionGraph.t.sol -vv
 ```
 
-You can keep these `src/*.sol` files and add tests under `test/`.
+Expected test files in this repo:
+
+- `test/SBTProfile.t.sol`
+- `test/ConnectionGraph.t.sol`
+- `test/README.md`
 
 ## Hardhat Notes
 

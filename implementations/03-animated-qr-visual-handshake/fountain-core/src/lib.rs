@@ -98,4 +98,27 @@ mod tests {
         let err = decode(&symbols).expect_err("decode should fail");
         assert_eq!(err, "invalid total count");
     }
+
+    #[test]
+    fn decode_preserves_trailing_zero_bytes_with_complete_set() {
+        let payload = vec![0x51, 0x52, 0x53, 0x00, 0x00];
+        let symbols = encode(&payload, 4);
+        let decoded = decode(&symbols).expect("decode should succeed");
+        assert_eq!(decoded.len(), payload.len());
+        assert_eq!(decoded, payload);
+        assert_eq!(decoded[3], 0x00);
+        assert_eq!(decoded[4], 0x00);
+    }
+
+    #[test]
+    fn decode_preserves_trailing_zero_bytes_when_recovering_missing_chunk() {
+        let payload = vec![0x41, 0x42, 0x43, 0x44, 0x00, 0x00];
+        let mut symbols = encode(&payload, 4);
+        symbols.remove(1);
+        let decoded = decode(&symbols).expect("decode should recover");
+        assert_eq!(decoded.len(), payload.len());
+        assert_eq!(decoded, payload);
+        assert_eq!(decoded[4], 0x00);
+        assert_eq!(decoded[5], 0x00);
+    }
 }

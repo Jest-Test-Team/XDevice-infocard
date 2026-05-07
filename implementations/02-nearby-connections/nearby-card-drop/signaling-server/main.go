@@ -42,6 +42,12 @@ type sessionStateResponse struct {
 	AnswerPeer string `json:"answerPeer,omitempty"`
 }
 
+type sessionSdpResponse struct {
+	SessionID string `json:"sessionId"`
+	OfferSdp  string `json:"offerSdp,omitempty"`
+	AnswerSdp string `json:"answerSdp,omitempty"`
+}
+
 var (
 	signalsMu sync.Mutex
 	signals   = map[string]signalRecord{}
@@ -178,12 +184,50 @@ func sessionHandler(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+func sessionSdpHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		w.Header().Set("Allow", http.MethodGet)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	sessionID := strings.TrimPrefix(r.URL.Path, "/signal/sdp/")
+	if strings.TrimSpace(sessionID) == "" {
+		http.Error(w, "sessionId is required", http.StatusBadRequest)
+		return
+	}
+
+	signalsMu.Lock()
+	record, ok := signals[sessionID]
+	signalsMu.Unlock()
+	if !ok {
+		http.Error(w, "session not found", http.StatusNotFound)
+		return
+	}
+
+	if strings.TrimSpace(record.OfferSdp) == "" && strings.TrimSpace(record.AnswerSdp) == "" {
+		http.Error(w, "sdp not found for session", http.StatusNotFound)
+		return
+	}
+
+	resp := sessionSdpResponse{
+		SessionID: sessionID,
+		OfferSdp:  record.OfferSdp,
+		AnswerSdp: record.AnswerSdp,
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(resp)
+}
+
 func newMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/signal/offer", postOnly(offerHandler))
 	mux.HandleFunc("/signal/answer", postOnly(answerHandler))
 	mux.HandleFunc("/signal/session/", sessionHandler)
+	mux.HandleFunc("/signal/sdp/", sessionSdpHandler)
 	return mux
 }
 
