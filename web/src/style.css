@@ -1,0 +1,25 @@
+:root {
+  --bg: #f2f4f7;
+  --paper: #ffffff;
+  --ink: #111111;
+  --muted: #667085;
+  --accent: #d92d20;
+  --line: #d0d5dd;
+}
+
+body {
+  margin: 0;
+  background: radial-gradient(circle at 20% 0%, #fff 0%, #edf1f6 50%, #e7ecf2 100%);
+  color: var(--ink);
+}
+
+.demo-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 16px;
+}
+
+.section-title {
+  letter-spacing: 0.08em;
+  font-weight: 700;
+}
