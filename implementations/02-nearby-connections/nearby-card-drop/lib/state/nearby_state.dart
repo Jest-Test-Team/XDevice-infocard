@@ -28,12 +28,15 @@ class NearbyContext {
     String? activePeerId,
     String? activeTransferId,
     String? error,
+    bool clearActivePeerId = false,
+    bool clearActiveTransferId = false,
+    bool clearError = false,
   }) {
     return NearbyContext(
       state: state ?? this.state,
-      activePeerId: activePeerId ?? this.activePeerId,
-      activeTransferId: activeTransferId ?? this.activeTransferId,
-      error: error ?? this.error,
+      activePeerId: clearActivePeerId ? null : (activePeerId ?? this.activePeerId),
+      activeTransferId: clearActiveTransferId ? null : (activeTransferId ?? this.activeTransferId),
+      error: clearError ? null : (error ?? this.error),
     );
   }
 }

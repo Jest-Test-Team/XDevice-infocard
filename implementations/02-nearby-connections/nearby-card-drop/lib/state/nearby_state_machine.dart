@@ -35,6 +35,13 @@ class NearbyStateMachine {
       return _context;
     }
 
+    if (event is ConnectedEstablished) {
+      if (current.state == NearbyState.connecting) {
+        _context = current.copyWith(state: NearbyState.connected, error: null);
+      }
+      return _context;
+    }
+
     if (event is TransferRequested) {
       if (current.state == NearbyState.connecting || current.state == NearbyState.connected) {
         _context = current.copyWith(
@@ -48,13 +55,23 @@ class NearbyStateMachine {
 
     if (event is TransferCompleted) {
       if (current.state == NearbyState.transferring && current.activeTransferId == event.transferId) {
-        _context = current.copyWith(state: NearbyState.completed);
+        _context = current.copyWith(state: NearbyState.completed, clearActiveTransferId: true);
       }
       return _context;
     }
 
     if (event is FailureObserved) {
       _context = current.copyWith(state: NearbyState.error, error: event.message);
+      return _context;
+    }
+
+    if (event is ResetRequested) {
+      _context = current.copyWith(
+        state: NearbyState.idle,
+        clearActivePeerId: true,
+        clearActiveTransferId: true,
+        clearError: true,
+      );
     }
 
     return _context;

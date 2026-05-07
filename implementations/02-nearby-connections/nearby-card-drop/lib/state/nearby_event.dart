@@ -16,6 +16,10 @@ class PeerSelected extends NearbyEvent {
   final String peerId;
 }
 
+class ConnectedEstablished extends NearbyEvent {
+  const ConnectedEstablished();
+}
+
 class TransferRequested extends NearbyEvent {
   const TransferRequested(this.transferId);
 
@@ -32,4 +36,8 @@ class FailureObserved extends NearbyEvent {
   const FailureObserved(this.message);
 
   final String message;
+}
+
+class ResetRequested extends NearbyEvent {
+  const ResetRequested();
 }

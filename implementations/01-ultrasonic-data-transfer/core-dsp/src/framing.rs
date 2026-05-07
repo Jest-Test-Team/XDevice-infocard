@@ -62,3 +62,40 @@ fn checksum32(data: &[u8]) -> u32 {
     }
     sum
 }
+
+#[cfg(test)]
+mod tests {
+    use super::{deframe_payload, frame_payload, FramingError};
+
+    #[test]
+    fn rejects_checksum_mismatch() {
+        let payload = b"sonic";
+        let mut frame = frame_payload(payload);
+        let last = frame.len() - 1;
+        frame[last] ^= 0x01;
+
+        let err = deframe_payload(&frame).expect_err("checksum corruption should fail");
+        assert_eq!(err, FramingError::ChecksumMismatch);
+    }
+
+    #[test]
+    fn rejects_version_mismatch() {
+        let payload = b"sonic";
+        let mut frame = frame_payload(payload);
+        frame[2] = frame[2].wrapping_add(1);
+
+        let err = deframe_payload(&frame).expect_err("version mismatch should fail");
+        assert_eq!(err, FramingError::InvalidVersion);
+    }
+
+    #[test]
+    fn rejects_length_mismatch() {
+        let payload = b"sonic";
+        let mut frame = frame_payload(payload);
+        // Declared length field starts at byte index 3 (LE u16).
+        frame[3] = frame[3].wrapping_add(1);
+
+        let err = deframe_payload(&frame).expect_err("length mismatch should fail");
+        assert_eq!(err, FramingError::LengthMismatch);
+    }
+}
