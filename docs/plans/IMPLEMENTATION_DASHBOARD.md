@@ -50,3 +50,21 @@ Implement executable scaffolds for all 4 plans under `implementations/` with non
 ## Completion Reality Check
 - Fully production-complete for all 4 plans: **Not yet**.
 - Current status: scaffolds + MVP core logic increments are complete; platform-specific native integrations, full protocol/security hardening, contract tests, and end-to-end cross-device QA are still pending.
+
+## Continuation Batch 2 (2026-05-07)
+- Plan 01: added framing negative tests (checksum/version/length) and full-byte modulate-demodulate roundtrip test.
+- Plan 02: added signaling server endpoint method guards + tests; expanded Dart state machine with connected/reset transitions and clearer context reset semantics.
+- Plan 03: hardened decoder duplicate handling and added coverage for incomplete/mixed/out-of-order/duplicate cases.
+- Plan 04: added backend-relayer API tests (happy path + error matrix) and contract test strategy doc under `contracts/test/README.md`.
+
+### Verification
+- `implementations/01-ultrasonic-data-transfer/core-dsp`: `cargo test` PASS (5 passed)
+- `implementations/03-animated-qr-visual-handshake/fountain-core`: `cargo test` PASS (6 passed)
+- `implementations/02-nearby-connections/nearby-card-drop/signaling-server`: `go test ./...` PASS
+- `implementations/04-web3-sbt-contacts/backend-relayer`: `go test ./...` PASS
+
+## Remaining To Reach Full Completion
+- Plan 01: real DSP modulation/demodulation (FSK/FFT), UniFFI generation/integration validation on iOS/Android.
+- Plan 02: actual Flutter app wiring and native Nearby SDK bridge implementation (Android/iOS code, not just contracts/docs).
+- Plan 03: true fountain/LT coding implementation and QR frame generator/scanner runtime integration.
+- Plan 04: executable Solidity tests, deployment scripts, real chain RPC relaying and signature verification.
