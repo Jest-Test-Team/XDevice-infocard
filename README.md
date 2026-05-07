@@ -1,24 +1,27 @@
 # XDevice-infocard
 
-This repository now organizes four implementation directions for cross-platform business-card exchange.
+Cross-platform business-card exchange initiatives with plan docs and implementation scaffolds.
 
-## Plan Folders
+## Current State (2026-05-07)
+- Parallel multi-agent completion round finished.
+- Coordinator verification passed for all runnable Rust/Go modules.
+- CI/CD pipeline is in place for cross-plan checks, including Foundry Solidity tests on GitHub runners.
 
-1. `plans/01-ultrasonic-data-transfer`
-- Focus: Near-field ultrasonic transfer with shared Rust DSP core.
-- Detailed plan: `plans/01-ultrasonic-data-transfer/IMPLEMENTATION_PLAN.md`
+## Completion Docs
+- `docs/PARALLEL_COMPLETION_PROGRESS.md`
+- `docs/COMPLETION_REPORT.md`
+- `docs/CI_CD_PIPELINE.md`
+- `docs/plans/IMPLEMENTATION_DASHBOARD.md`
 
-2. `plans/02-nearby-connections`
-- Focus: Google Nearby Connections with Flutter + native bridges.
-- Detailed plan: `plans/02-nearby-connections/IMPLEMENTATION_PLAN.md`
+## Plan Docs
+- Canonical plans: `docs/plans`
+- Progress tracker: `docs/plans/PROGRESS_TRACKER.md`
 
-3. `plans/03-animated-qr-visual-handshake`
-- Focus: Animated QR streaming with Rust fountain-code recovery.
-- Detailed plan: `plans/03-animated-qr-visual-handshake/IMPLEMENTATION_PLAN.md`
+## Implementations
+- `implementations/01-ultrasonic-data-transfer`
+- `implementations/02-nearby-connections`
+- `implementations/03-animated-qr-visual-handshake`
+- `implementations/04-web3-sbt-contacts`
 
-4. `plans/04-web3-sbt-contacts`
-- Focus: Web3 SBT identity/contact graph with Go relayer.
-- Detailed plan: `plans/04-web3-sbt-contacts/IMPLEMENTATION_PLAN.md`
-
-## Source Note
-The plan content is derived from `spec&expectations.md` and expanded into implementation-oriented execution documents.
+## Source
+Initial strategy and expectations are defined in `spec&expectations.md`.

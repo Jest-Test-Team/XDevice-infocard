@@ -1,0 +1,150 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://xdevice.local/schemas/nearby_bridge.schema.json",
+  "title": "Nearby Bridge Contract",
+  "type": "object",
+  "required": ["methodChannel", "eventChannel", "methods", "events"],
+  "properties": {
+    "methodChannel": {"const": "xdevice/nearby_bridge/methods"},
+    "eventChannel": {"const": "xdevice/nearby_bridge/events"},
+    "methods": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "requestSchema", "responseSchema"],
+        "properties": {
+          "name": {"type": "string"},
+          "requestSchema": {"$ref": "#/$defs/objectSchema"},
+          "responseSchema": {"$ref": "#/$defs/objectSchema"}
+        }
+      }
+    },
+    "events": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["name", "dataSchema"],
+        "properties": {
+          "name": {"type": "string"},
+          "dataSchema": {"$ref": "#/$defs/objectSchema"}
+        }
+      }
+    }
+  },
+  "$defs": {
+    "objectSchema": {
+      "type": "object",
+      "additionalProperties": true
+    }
+  },
+  "examples": [
+    {
+      "methodChannel": "xdevice/nearby_bridge/methods",
+      "eventChannel": "xdevice/nearby_bridge/events",
+      "methods": [
+        {
+          "name": "initialize",
+          "requestSchema": {
+            "type": "object",
+            "additionalProperties": false
+          },
+          "responseSchema": {
+            "type": "object",
+            "required": ["ok"],
+            "properties": {"ok": {"type": "boolean"}}
+          }
+        },
+        {
+          "name": "startAdvertising",
+          "requestSchema": {
+            "type": "object",
+            "required": ["localDisplayName"],
+            "properties": {"localDisplayName": {"type": "string"}}
+          },
+          "responseSchema": {
+            "type": "object",
+            "required": ["ok"],
+            "properties": {"ok": {"type": "boolean"}}
+          }
+        },
+        {
+          "name": "startDiscovery",
+          "requestSchema": {"type": "object", "additionalProperties": false},
+          "responseSchema": {
+            "type": "object",
+            "required": ["ok"],
+            "properties": {"ok": {"type": "boolean"}}
+          }
+        },
+        {
+          "name": "requestConnection",
+          "requestSchema": {
+            "type": "object",
+            "required": ["peerId"],
+            "properties": {"peerId": {"type": "string"}}
+          },
+          "responseSchema": {
+            "type": "object",
+            "required": ["ok"],
+            "properties": {"ok": {"type": "boolean"}}
+          }
+        },
+        {
+          "name": "sendPayload",
+          "requestSchema": {
+            "type": "object",
+            "required": ["peerId", "transferId", "fileName", "totalBytes"],
+            "properties": {
+              "peerId": {"type": "string"},
+              "transferId": {"type": "string"},
+              "fileName": {"type": "string"},
+              "totalBytes": {"type": "integer", "minimum": 0}
+            }
+          },
+          "responseSchema": {
+            "type": "object",
+            "required": ["ok"],
+            "properties": {"ok": {"type": "boolean"}}
+          }
+        }
+      ],
+      "events": [
+        {
+          "name": "onPeerDiscovered",
+          "dataSchema": {
+            "type": "object",
+            "required": ["peerId", "displayName", "medium"],
+            "properties": {
+              "peerId": {"type": "string"},
+              "displayName": {"type": "string"},
+              "medium": {"type": "string", "enum": ["nearby", "multipeer", "bluetooth", "wifiLan", "wifiAware"]}
+            }
+          }
+        },
+        {
+          "name": "onTransferProgress",
+          "dataSchema": {
+            "type": "object",
+            "required": ["transferId", "bytesTransferred", "totalBytes"],
+            "properties": {
+              "transferId": {"type": "string"},
+              "bytesTransferred": {"type": "integer", "minimum": 0},
+              "totalBytes": {"type": "integer", "minimum": 0}
+            }
+          }
+        },
+        {
+          "name": "onError",
+          "dataSchema": {
+            "type": "object",
+            "required": ["code", "message"],
+            "properties": {
+              "code": {"type": "string"},
+              "message": {"type": "string"}
+            }
+          }
+        }
+      ]
+    }
+  ]
+}

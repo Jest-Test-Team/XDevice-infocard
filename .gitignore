@@ -1,1 +1,6 @@
 spec&expectations.md
+/implementations/01-ultrasonic-data-transfer/core-dsp/target/debug
+/implementations/01-ultrasonic-data-transfer/core-dsp/target
+/implementations/03-animated-qr-visual-handshake/fountain-core/target
+/implementations/02-nearby-connections/nearby-card-drop/signaling-server/signaling-server
+/implementations/04-web3-sbt-contacts/backend-relayer/backend-relayer
