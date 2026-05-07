@@ -36,6 +36,12 @@ type submitResponse struct {
 	Message string `json:"message"`
 }
 
+type txStatusResponse struct {
+	TxHash    string `json:"txHash"`
+	RequestID string `json:"requestId"`
+	Status    string `json:"status"`
+}
+
 type preparedRequest struct {
 	Operation string
 	Nonce     string
@@ -45,6 +51,8 @@ type preparedRequest struct {
 var (
 	requestsMu sync.Mutex
 	requests   = map[string]preparedRequest{}
+	txMu       sync.Mutex
+	txStatus   = map[string]txStatusResponse{}
 )
 
 func main() {
@@ -52,6 +60,7 @@ func main() {
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/v1/prepare", prepareHandler)
 	mux.HandleFunc("/v1/submit", submitHandler)
+	mux.HandleFunc("/v1/tx/", txStatusHandler)
 
 	server := &http.Server{
 		Addr:              ":8080",
@@ -161,6 +170,34 @@ func submitHandler(w http.ResponseWriter, r *http.Request) {
 		Status:  "submitted",
 		Message: "accepted for relay",
 	})
+
+	txMu.Lock()
+	txStatus[txHash] = txStatusResponse{
+		TxHash:    txHash,
+		RequestID: req.RequestID,
+		Status:    "submitted",
+	}
+	txMu.Unlock()
+}
+
+func txStatusHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		writeJSON(w, http.StatusMethodNotAllowed, map[string]string{"error": "method not allowed"})
+		return
+	}
+	txHash := strings.TrimPrefix(r.URL.Path, "/v1/tx/")
+	if txHash == "" {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": "tx hash is required"})
+		return
+	}
+	txMu.Lock()
+	status, ok := txStatus[txHash]
+	txMu.Unlock()
+	if !ok {
+		writeJSON(w, http.StatusNotFound, map[string]string{"error": "tx not found"})
+		return
+	}
+	writeJSON(w, http.StatusOK, status)
 }
 
 func writeJSON(w http.ResponseWriter, status int, payload any) {

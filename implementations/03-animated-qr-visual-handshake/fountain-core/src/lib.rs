@@ -39,9 +39,10 @@ mod tests {
     #[test]
     fn decode_accepts_out_of_order_symbols() {
         let symbols = vec![
-            Symbol::new(7, 2, 3, b"c".to_vec()),
-            Symbol::new(7, 0, 3, b"a".to_vec()),
-            Symbol::new(7, 1, 3, b"b".to_vec()),
+            Symbol::new(7, 2, 4, b"c".to_vec()),
+            Symbol::new(7, 0, 4, b"a".to_vec()),
+            Symbol::new(7, 3, 4, b"`".to_vec()),
+            Symbol::new(7, 1, 4, b"b".to_vec()),
         ];
         let decoded = decode(&symbols).expect("decode should succeed");
         assert_eq!(decoded, b"abc");
