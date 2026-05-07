@@ -2,22 +2,22 @@
   <q-layout view="hHh lpR fFf" class="app-shell">
     <q-header class="shell-header" bordered>
       <q-toolbar class="toolbar-wrap">
-        <div class="brand-wrap">
+        <div class="brand-wrap reveal r1">
           <div class="brand-kicker">XDEVICE INFOSYSTEM</div>
           <q-toolbar-title class="brand-title">InfoCard Transfer Lab</q-toolbar-title>
         </div>
-        <q-chip dense class="build-chip">Quasar + NothingX React</q-chip>
+        <q-chip dense class="build-chip reveal r2">Quasar + NothingX React</q-chip>
       </q-toolbar>
     </q-header>
 
     <q-page-container>
       <q-page class="page-wrap">
-        <section class="hero-grid">
+        <section class="hero-grid panel panel-hero reveal r2">
           <div>
             <div class="hero-eyebrow">MISSION OVERVIEW</div>
             <h1 class="hero-title">Four contact-exchange projects, one reusable trust flow.</h1>
             <p class="hero-subtitle">
-              A practical portfolio that compares acoustic payloads, nearby P2P state machines,
+              A practical portfolio comparing acoustic payloads, nearby P2P state machines,
               visual frame-recovery, and signed on-chain style attestations.
             </p>
             <div class="hero-metrics">
@@ -35,7 +35,7 @@
         </section>
 
         <section class="projects-grid">
-          <q-card bordered flat class="project-card">
+          <q-card bordered flat class="project-card reveal r2">
             <q-card-section>
               <div class="project-kicker">01 / ULTRASONIC</div>
               <h2 class="project-title">Audio-tone card transfer</h2>
@@ -44,18 +44,12 @@
             <q-separator />
             <q-card-section>
               <q-slider v-model="noise" :min="0" :max="100" color="dark" label label-always/>
-              <div class="demo-row">
-                <span>Noise injection</span>
-                <strong>{{ noise }}%</strong>
-              </div>
-              <div class="demo-row">
-                <span>Decode confidence</span>
-                <strong>{{ 100 - noise }}%</strong>
-              </div>
+              <div class="demo-row"><span>Noise injection</span><strong>{{ noise }}%</strong></div>
+              <div class="demo-row"><span>Decode confidence</span><strong>{{ 100 - noise }}%</strong></div>
             </q-card-section>
           </q-card>
 
-          <q-card bordered flat class="project-card">
+          <q-card bordered flat class="project-card reveal r3">
             <q-card-section>
               <div class="project-kicker">02 / NEARBY</div>
               <h2 class="project-title">Device-to-device handshake</h2>
@@ -72,7 +66,7 @@
             </q-card-section>
           </q-card>
 
-          <q-card bordered flat class="project-card">
+          <q-card bordered flat class="project-card reveal r4">
             <q-card-section>
               <div class="project-kicker">03 / VISUAL HANDSHAKE</div>
               <h2 class="project-title">Animated QR + repair symbols</h2>
@@ -82,14 +76,11 @@
             <q-card-section>
               <q-input v-model.number="dropRate" type="number" label="Frame drop rate %" min="0" max="90" dense outlined />
               <q-linear-progress :value="Math.max(0, 1 - dropRate / 100)" color="dark" class="q-mt-md" size="10px" />
-              <div class="demo-row q-mt-sm">
-                <span>Recovery estimate</span>
-                <strong>{{ Math.max(10, 100 - dropRate) }}%</strong>
-              </div>
+              <div class="demo-row q-mt-sm"><span>Recovery estimate</span><strong>{{ Math.max(10, 100 - dropRate) }}%</strong></div>
             </q-card-section>
           </q-card>
 
-          <q-card bordered flat class="project-card">
+          <q-card bordered flat class="project-card reveal r5">
             <q-card-section>
               <div class="project-kicker">04 / WEB3 SBT</div>
               <h2 class="project-title">Signed relationship attestations</h2>
@@ -107,8 +98,8 @@
         </section>
 
         <section class="secondary-react-grid">
-          <ReactNothingPanel title="ULTRASONIC" subtitle="Live decode confidence" :value="100 - noise" />
-          <ReactNothingPanel title="VISUAL" subtitle="Repair pipeline health" :value="Math.max(10, 100 - dropRate)" />
+          <div class="reveal r4"><ReactNothingPanel title="ULTRASONIC" subtitle="Live decode confidence" :value="100 - noise" /></div>
+          <div class="reveal r5"><ReactNothingPanel title="VISUAL" subtitle="Repair pipeline health" :value="Math.max(10, 100 - dropRate)" /></div>
         </section>
       </q-page>
     </q-page-container>
