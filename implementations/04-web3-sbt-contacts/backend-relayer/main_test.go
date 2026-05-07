@@ -14,6 +14,9 @@ func resetRequests() {
 	requestsMu.Lock()
 	defer requestsMu.Unlock()
 	requests = map[string]preparedRequest{}
+	txMu.Lock()
+	defer txMu.Unlock()
+	txStatus = map[string]txStatusResponse{}
 }
 
 func TestPrepareAndSubmitHappyPath(t *testing.T) {
@@ -67,6 +70,20 @@ func TestPrepareAndSubmitHappyPath(t *testing.T) {
 	}
 	if !strings.HasPrefix(submitResp.TxHash, "0x") || len(submitResp.TxHash) != 66 {
 		t.Fatalf("invalid tx hash format: %q", submitResp.TxHash)
+	}
+
+	txReq := httptest.NewRequest(http.MethodGet, "/v1/tx/"+submitResp.TxHash, nil)
+	txRec := httptest.NewRecorder()
+	txStatusHandler(txRec, txReq)
+	if txRec.Code != http.StatusOK {
+		t.Fatalf("tx status = %d, want %d", txRec.Code, http.StatusOK)
+	}
+	var txResp txStatusResponse
+	if err := json.NewDecoder(txRec.Body).Decode(&txResp); err != nil {
+		t.Fatalf("decode tx response: %v", err)
+	}
+	if txResp.TxHash != submitResp.TxHash || txResp.RequestID != prepareResp.RequestID {
+		t.Fatalf("tx status response mismatch: %+v", txResp)
 	}
 }
 
@@ -176,6 +193,28 @@ func TestSubmitHandlerErrors(t *testing.T) {
 		rec := httptest.NewRecorder()
 		submitHandler(rec, req)
 		assertErrorResponse(t, rec, http.StatusBadRequest, "prepared request expired")
+	})
+}
+
+func TestTxStatusErrors(t *testing.T) {
+	resetRequests()
+	t.Run("method not allowed", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodPost, "/v1/tx/0xabc", nil)
+		rec := httptest.NewRecorder()
+		txStatusHandler(rec, req)
+		assertErrorResponse(t, rec, http.StatusMethodNotAllowed, "method not allowed")
+	})
+	t.Run("missing tx hash", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/tx/", nil)
+		rec := httptest.NewRecorder()
+		txStatusHandler(rec, req)
+		assertErrorResponse(t, rec, http.StatusBadRequest, "tx hash is required")
+	})
+	t.Run("not found", func(t *testing.T) {
+		req := httptest.NewRequest(http.MethodGet, "/v1/tx/0xdeadbeef", nil)
+		rec := httptest.NewRecorder()
+		txStatusHandler(rec, req)
+		assertErrorResponse(t, rec, http.StatusNotFound, "tx not found")
 	})
 }
 

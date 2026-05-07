@@ -68,3 +68,16 @@ Implement executable scaffolds for all 4 plans under `implementations/` with non
 - Plan 02: actual Flutter app wiring and native Nearby SDK bridge implementation (Android/iOS code, not just contracts/docs).
 - Plan 03: true fountain/LT coding implementation and QR frame generator/scanner runtime integration.
 - Plan 04: executable Solidity tests, deployment scripts, real chain RPC relaying and signature verification.
+
+## Continuation Batch 3 (2026-05-07)
+- Plan 01 (`core-dsp`): added binary payload APIs (`encode_payload_bytes` / `decode_payload_bytes`) and roundtrip binary test coverage.
+- Plan 03 (`fountain-core`): introduced parity symbol model to recover one missing data chunk; decoder upgraded for parity-aware reconstruction.
+- Plan 04 (`backend-relayer`): added transaction status tracking map and `GET /v1/tx/{hash}` endpoint with tests.
+
+### Verification
+- `implementations/01-ultrasonic-data-transfer/core-dsp`: `cargo test` PASS (6 passed)
+- `implementations/03-animated-qr-visual-handshake/fountain-core`: `cargo test` PASS (7 passed)
+- `implementations/04-web3-sbt-contacts/backend-relayer`: `go test ./...` PASS
+
+### Notes
+- Go test in sandbox requires writable cache path, executed with `GOCACHE=/tmp/go-build-cache`.

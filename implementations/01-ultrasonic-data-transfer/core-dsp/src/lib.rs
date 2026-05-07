@@ -12,8 +12,8 @@ pub use protocol::{
 #[cfg(test)]
 mod tests {
     use super::{
-        decode_payload, demodulate_samples, encode_payload, modulate_bytes, DemodulatorConfig,
-        ModulatorConfig,
+        decode_payload, decode_payload_bytes, demodulate_samples, encode_payload,
+        encode_payload_bytes, modulate_bytes, DemodulatorConfig, ModulatorConfig,
     };
 
     #[test]
