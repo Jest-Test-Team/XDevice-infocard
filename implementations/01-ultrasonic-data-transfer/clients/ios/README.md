@@ -3,10 +3,10 @@
 ## Goal
 Integrate `core-dsp` via UniFFI-generated Swift bindings for encode/decode flows.
 
-## Planned steps
+## In-repo helper path
 
-1. Add UniFFI generation to Rust build pipeline.
-2. Generate Swift binding artifacts from `core-dsp/uniffi/uniffi.udl`.
+1. Run `core-dsp/scripts/generate-uniffi.sh swift` to generate Swift bindings.
+2. Follow `docs/uniffi-integration-checklist.md` for packaging/linking steps.
 3. Package Rust static library or XCFramework for iOS consumption.
 4. Wire encode/decode API into audio capture/playback pipeline.
 
@@ -16,4 +16,4 @@ Integrate `core-dsp` via UniFFI-generated Swift bindings for encode/decode flows
 - `decodePayload(frame: Data) throws -> String`
 
 ## Status
-Scaffold only. No generated Swift bindings committed yet.
+Generation helper and checklist are committed. Platform packaging and app wiring are still pending.

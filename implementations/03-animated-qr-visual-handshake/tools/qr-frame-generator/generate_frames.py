@@ -65,7 +65,8 @@ def main() -> int:
 
     for seq, frame in enumerate(frames):
         frame_b64 = base64.b64encode(frame).decode("ascii")
-        payload_string = f"xhv1:{transfer_id}:{len(payload)}:{seq}:{total}:{frame_b64}"
+        neighbors_csv = str(seq)
+        payload_string = f"xhv1:{transfer_id}:{len(payload)}:{seq}:{total}:{neighbors_csv}:{frame_b64}"
         if args.format == "plain":
             print(payload_string)
             continue
@@ -77,6 +78,7 @@ def main() -> int:
             "frame_bytes": args.frame_bytes,
             "sequence": seq,
             "total": total,
+            "neighbors_csv": neighbors_csv,
             "chunk_b64": frame_b64,
             "payload_string": payload_string,
         }

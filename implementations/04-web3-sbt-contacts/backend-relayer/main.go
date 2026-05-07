@@ -2,7 +2,6 @@ package main
 
 import (
 	"crypto/rand"
-	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"fmt"
@@ -82,7 +81,8 @@ var (
 	requestsMu sync.Mutex
 	requests   = map[string]preparedRequest{}
 	txMu       sync.Mutex
-	txStatus   = map[string]txStatusResponse{}
+	txStatus            = map[string]txStatusResponse{}
+	chainRPC   ChainRPC = buildChainRPC()
 )
 
 func main() {
@@ -210,22 +210,36 @@ func submitHandler(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
 		return
 	}
+	digestHex, err := eip712DigestHex(req.Signable)
+	if err != nil {
+		writeJSON(w, http.StatusBadRequest, map[string]string{"error": err.Error()})
+		return
+	}
 
-	digest := sha256.Sum256([]byte(fmt.Sprintf("%s:%s:%s", req.RequestID, prepared.Nonce, req.Signature)))
-	txHash := "0x" + hex.EncodeToString(digest[:])
+	relayResult, err := chainRPC.RelayContactOperation(r.Context(), RelayTxRequest{
+		RequestID:     req.RequestID,
+		Operation:     prepared.Operation,
+		Signature:     req.Signature,
+		TypedData:     req.Signable,
+		TypedDataHash: digestHex,
+	})
+	if err != nil {
+		writeJSON(w, http.StatusBadGateway, map[string]string{"error": fmt.Sprintf("relay failed: %v", err)})
+		return
+	}
 
 	writeJSON(w, http.StatusOK, submitResponse{
-		TxHash:  txHash,
-		Status:  "submitted",
+		TxHash:  relayResult.TxHash,
+		Status:  relayResult.Status,
 		Message: "accepted for relay",
 	})
 
 	txMu.Lock()
-	txStatus[txHash] = txStatusResponse{
-		TxHash:    txHash,
+	txStatus[relayResult.TxHash] = txStatusResponse{
+		TxHash:    relayResult.TxHash,
 		RequestID: req.RequestID,
 		Operation: prepared.Operation,
-		Status:    "submitted",
+		Status:    relayResult.Status,
 	}
 	txMu.Unlock()
 }

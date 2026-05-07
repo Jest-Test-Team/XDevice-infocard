@@ -2,24 +2,20 @@
 
 Cross-platform business-card exchange initiatives with plan docs and implementation scaffolds.
 
-## Status
-- Multi-agent implementation round completed on 2026-05-07.
-- Coordinator verification passed for all Rust/Go modules under `implementations/*` that are runnable in this environment.
-- CI/CD pipeline added to run full verification on GitHub runners, including Foundry Solidity tests and bind-based relayer E2E.
+## Current State (2026-05-07)
+- Parallel multi-agent completion round finished.
+- Coordinator verification passed for all runnable Rust/Go modules.
+- CI/CD pipeline is in place for cross-plan checks, including Foundry Solidity tests on GitHub runners.
 
-## CI/CD
-- Workflow: `.github/workflows/verify-implementations.yml`
-- Pipeline documentation: `docs/CI_CD_PIPELINE.md`
+## Completion Docs
+- `docs/PARALLEL_COMPLETION_PROGRESS.md`
+- `docs/COMPLETION_REPORT.md`
+- `docs/CI_CD_PIPELINE.md`
+- `docs/plans/IMPLEMENTATION_DASHBOARD.md`
 
 ## Plan Docs
 - Canonical plans: `docs/plans`
-- Main monitoring dashboard: `docs/plans/IMPLEMENTATION_DASHBOARD.md`
 - Progress tracker: `docs/plans/PROGRESS_TRACKER.md`
-
-## Coordinator Docs
-- `docs/AGENT_EXECUTION_STATUS.md`
-- `docs/COMPLETION_REPORT.md`
-- `docs/CI_CD_PIPELINE.md`
 
 ## Implementations
 - `implementations/01-ultrasonic-data-transfer`

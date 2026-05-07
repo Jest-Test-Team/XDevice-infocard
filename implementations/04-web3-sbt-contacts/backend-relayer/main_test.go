@@ -2,7 +2,9 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
+	"errors"
 	"net/http"
 	"net/http/httptest"
 	"strings"
@@ -17,6 +19,21 @@ func resetRequests() {
 	txMu.Lock()
 	defer txMu.Unlock()
 	txStatus = map[string]txStatusResponse{}
+	chainRPC = &InMemoryChainRPC{}
+}
+
+type mockChainRPC struct {
+	result RelayResult
+	err    error
+	last   RelayTxRequest
+}
+
+func (m *mockChainRPC) RelayContactOperation(_ context.Context, req RelayTxRequest) (RelayResult, error) {
+	m.last = req
+	if m.err != nil {
+		return RelayResult{}, m.err
+	}
+	return m.result, nil
 }
 
 func TestPrepareAndSubmitHappyPath(t *testing.T) {
@@ -272,6 +289,53 @@ func TestSubmitHandlerErrors(t *testing.T) {
 		submitHandler(rec, req)
 		assertErrorResponse(t, rec, http.StatusBadRequest, "signable message mismatch")
 	})
+
+	t.Run("invalid domain chainId", func(t *testing.T) {
+		resetRequests()
+		signable := buildSignableTypedData("ready-id", "connect", "00112233")
+		signable.Domain.ChainID = "NaN"
+		requestsMu.Lock()
+		requests["ready-id"] = preparedRequest{
+			Operation: "connect",
+			Nonce:     "00112233",
+			Signable:  signable,
+			CreatedAt: time.Now().UTC(),
+		}
+		requestsMu.Unlock()
+		payload := submitRequest{RequestID: "ready-id", Signature: "0x1234abcd90", Signable: signable}
+		body, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("marshal payload: %v", err)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/v1/submit", bytes.NewReader(body))
+		rec := httptest.NewRecorder()
+		submitHandler(rec, req)
+		assertErrorResponse(t, rec, http.StatusBadRequest, "invalid domain.chainId")
+	})
+
+	t.Run("rpc failure", func(t *testing.T) {
+		resetRequests()
+		mock := &mockChainRPC{err: errors.New("rpc unavailable")}
+		chainRPC = mock
+		signable := buildSignableTypedData("ready-id", "connect", "00112233")
+		requestsMu.Lock()
+		requests["ready-id"] = preparedRequest{
+			Operation: "connect",
+			Nonce:     "00112233",
+			Signable:  signable,
+			CreatedAt: time.Now().UTC(),
+		}
+		requestsMu.Unlock()
+		payload := submitRequest{RequestID: "ready-id", Signature: "0x1234abcd90", Signable: signable}
+		body, err := json.Marshal(payload)
+		if err != nil {
+			t.Fatalf("marshal payload: %v", err)
+		}
+		req := httptest.NewRequest(http.MethodPost, "/v1/submit", bytes.NewReader(body))
+		rec := httptest.NewRecorder()
+		submitHandler(rec, req)
+		assertErrorResponse(t, rec, http.StatusBadGateway, "relay failed: rpc unavailable")
+	})
 }
 
 func TestTxStatusErrors(t *testing.T) {
@@ -336,6 +400,46 @@ func TestSubmitRequestIsSingleUse(t *testing.T) {
 	secondRec := httptest.NewRecorder()
 	submitHandler(secondRec, secondReq)
 	assertErrorResponse(t, secondRec, http.StatusNotFound, "request not found or already submitted")
+}
+
+func TestSubmitPassesDeterministicEIP712DigestToRPC(t *testing.T) {
+	resetRequests()
+	signable := buildSignableTypedData("rid-001", "connect", "nonce-001")
+	mock := &mockChainRPC{result: RelayResult{TxHash: "0xabc123", Status: "submitted"}}
+	chainRPC = mock
+	requestsMu.Lock()
+	requests["rid-001"] = preparedRequest{
+		Operation: "connect",
+		Nonce:     "nonce-001",
+		Signable:  signable,
+		CreatedAt: time.Now().UTC(),
+	}
+	requestsMu.Unlock()
+
+	body, err := json.Marshal(submitRequest{
+		RequestID: "rid-001",
+		Signature: "0x1234abcd90",
+		Signable:  signable,
+	})
+	if err != nil {
+		t.Fatalf("marshal payload: %v", err)
+	}
+	req := httptest.NewRequest(http.MethodPost, "/v1/submit", bytes.NewReader(body))
+	rec := httptest.NewRecorder()
+	submitHandler(rec, req)
+	if rec.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusOK)
+	}
+	wantDigest, err := eip712DigestHex(signable)
+	if err != nil {
+		t.Fatalf("digest: %v", err)
+	}
+	if mock.last.TypedDataHash != wantDigest {
+		t.Fatalf("typedDataHash = %q, want %q", mock.last.TypedDataHash, wantDigest)
+	}
+	if mock.last.RequestID != "rid-001" || mock.last.Operation != "connect" {
+		t.Fatalf("unexpected relay request: %+v", mock.last)
+	}
 }
 
 func assertErrorResponse(t *testing.T, rec *httptest.ResponseRecorder, wantStatus int, wantErr string) {

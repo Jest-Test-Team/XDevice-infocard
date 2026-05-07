@@ -7,12 +7,15 @@ import (
 	"net/http/httptest"
 	"strings"
 	"testing"
+	"time"
 )
 
 func resetSignals() {
 	signalsMu.Lock()
 	defer signalsMu.Unlock()
 	signals = map[string]signalRecord{}
+	nowUTC = func() time.Time { return time.Now().UTC() }
+	sessionTTL = 10 * time.Minute
 }
 
 func TestHealthEndpoint(t *testing.T) {
@@ -255,6 +258,60 @@ func TestSessionSdpEndpoint(t *testing.T) {
 	}
 	if resp.OfferSdp != "offer-sdp" || resp.AnswerSdp != "answer-sdp" {
 		t.Fatalf("unexpected sdp payloads: %+v", resp)
+	}
+}
+
+func TestSessionExpiryViaCleanupEndpoint(t *testing.T) {
+	resetSignals()
+	sessionTTL = 1 * time.Second
+	now := time.Date(2026, 5, 7, 0, 0, 0, 0, time.UTC)
+	nowUTC = func() time.Time { return now }
+	mux := newMux()
+
+	offer := `{"sessionId":"sess-expired","sdp":"offer-sdp","fromPeer":"alice"}`
+	offerReq := httptest.NewRequest(http.MethodPost, "/signal/offer", bytes.NewBufferString(offer))
+	offerRec := httptest.NewRecorder()
+	mux.ServeHTTP(offerRec, offerReq)
+	if offerRec.Code != http.StatusAccepted {
+		t.Fatalf("offer status = %d, want %d", offerRec.Code, http.StatusAccepted)
+	}
+
+	now = now.Add(2 * time.Second)
+	cleanupReq := httptest.NewRequest(http.MethodPost, "/signal/cleanup", nil)
+	cleanupRec := httptest.NewRecorder()
+	mux.ServeHTTP(cleanupRec, cleanupReq)
+	if cleanupRec.Code != http.StatusOK {
+		t.Fatalf("cleanup status = %d, want %d", cleanupRec.Code, http.StatusOK)
+	}
+
+	var cleanupBody map[string]int
+	if err := json.NewDecoder(cleanupRec.Body).Decode(&cleanupBody); err != nil {
+		t.Fatalf("decode cleanup response: %v", err)
+	}
+	if cleanupBody["deletedSessions"] != 1 {
+		t.Fatalf("deletedSessions = %d, want 1", cleanupBody["deletedSessions"])
+	}
+
+	getReq := httptest.NewRequest(http.MethodGet, "/signal/session/sess-expired", nil)
+	getRec := httptest.NewRecorder()
+	mux.ServeHTTP(getRec, getReq)
+	if getRec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", getRec.Code, http.StatusNotFound)
+	}
+}
+
+func TestCleanupEndpointMethodNotAllowed(t *testing.T) {
+	resetSignals()
+	mux := newMux()
+
+	req := httptest.NewRequest(http.MethodGet, "/signal/cleanup", nil)
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusMethodNotAllowed {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusMethodNotAllowed)
+	}
+	if allow := rec.Header().Get("Allow"); allow != http.MethodPost {
+		t.Fatalf("allow = %q, want %q", allow, http.MethodPost)
 	}
 }
 

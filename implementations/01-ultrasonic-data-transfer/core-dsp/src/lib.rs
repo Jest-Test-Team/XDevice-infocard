@@ -3,7 +3,7 @@ pub mod framing;
 pub mod modulator;
 pub mod protocol;
 
-pub use demodulator::{demodulate_samples, DemodulatorConfig};
+pub use demodulator::{demodulate_samples, DemodMethod, DemodulatorConfig};
 pub use modulator::{modulate_bytes, ModulatorConfig};
 pub use protocol::{
     decode_payload, decode_payload_bytes, encode_payload, encode_payload_bytes, ProtocolError,
@@ -14,8 +14,8 @@ mod tests {
     use std::f32::consts::TAU;
 
     use super::{
-        decode_payload, decode_payload_bytes, demodulate_samples, encode_payload,
-        encode_payload_bytes, modulate_bytes, DemodulatorConfig, ModulatorConfig,
+        decode_payload, decode_payload_bytes, demodulate_samples, encode_payload, encode_payload_bytes,
+        modulate_bytes, DemodMethod, DemodulatorConfig, ModulatorConfig,
     };
 
     #[test]
@@ -52,6 +52,18 @@ mod tests {
             *s += (noise - 0.5) * 0.35;
         }
         let output = demodulate_samples(&samples, &DemodulatorConfig::default());
+        assert_eq!(input.to_vec(), output);
+    }
+
+    #[test]
+    fn goertzel_demod_path_round_trip() {
+        let input = b"goertzel-demod-path";
+        let samples = modulate_bytes(input, &ModulatorConfig::default());
+        let cfg = DemodulatorConfig {
+            demod_method: DemodMethod::Goertzel,
+            ..DemodulatorConfig::default()
+        };
+        let output = demodulate_samples(&samples, &cfg);
         assert_eq!(input.to_vec(), output);
     }
 

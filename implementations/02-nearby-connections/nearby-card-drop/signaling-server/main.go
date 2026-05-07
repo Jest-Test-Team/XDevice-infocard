@@ -28,10 +28,11 @@ type answerRequest struct {
 }
 
 type signalRecord struct {
-	OfferSdp   string
-	AnswerSdp  string
-	OfferPeer  string
-	AnswerPeer string
+	OfferSdp      string
+	AnswerSdp     string
+	OfferPeer     string
+	AnswerPeer    string
+	LastUpdatedAt time.Time
 }
 
 type sessionStateResponse struct {
@@ -49,9 +50,32 @@ type sessionSdpResponse struct {
 }
 
 var (
-	signalsMu sync.Mutex
-	signals   = map[string]signalRecord{}
+	signalsMu  sync.Mutex
+	signals    = map[string]signalRecord{}
+	sessionTTL = 10 * time.Minute
+	nowUTC     = func() time.Time { return time.Now().UTC() }
 )
+
+func isExpired(record signalRecord, now time.Time) bool {
+	if record.LastUpdatedAt.IsZero() {
+		return false
+	}
+	return now.Sub(record.LastUpdatedAt) > sessionTTL
+}
+
+func cleanupExpiredSessions(now time.Time) int {
+	signalsMu.Lock()
+	defer signalsMu.Unlock()
+
+	deleted := 0
+	for sessionID, record := range signals {
+		if isExpired(record, now) {
+			delete(signals, sessionID)
+			deleted++
+		}
+	}
+	return deleted
+}
 
 func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -94,6 +118,7 @@ func offerHandler(w http.ResponseWriter, r *http.Request) {
 	record := signals[req.SessionID]
 	record.OfferSdp = req.Sdp
 	record.OfferPeer = req.FromPeer
+	record.LastUpdatedAt = nowUTC()
 	signals[req.SessionID] = record
 	signalsMu.Unlock()
 
@@ -125,6 +150,7 @@ func answerHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	record.AnswerSdp = req.Sdp
 	record.AnswerPeer = req.FromPeer
+	record.LastUpdatedAt = nowUTC()
 	signals[req.SessionID] = record
 	signalsMu.Unlock()
 
@@ -166,6 +192,10 @@ func sessionHandler(w http.ResponseWriter, r *http.Request) {
 
 	signalsMu.Lock()
 	record, ok := signals[sessionID]
+	if ok && isExpired(record, nowUTC()) {
+		delete(signals, sessionID)
+		ok = false
+	}
 	signalsMu.Unlock()
 	if !ok {
 		http.Error(w, "session not found", http.StatusNotFound)
@@ -199,6 +229,10 @@ func sessionSdpHandler(w http.ResponseWriter, r *http.Request) {
 
 	signalsMu.Lock()
 	record, ok := signals[sessionID]
+	if ok && isExpired(record, nowUTC()) {
+		delete(signals, sessionID)
+		ok = false
+	}
 	signalsMu.Unlock()
 	if !ok {
 		http.Error(w, "session not found", http.StatusNotFound)
@@ -221,6 +255,21 @@ func sessionSdpHandler(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(resp)
 }
 
+func cleanupHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		w.Header().Set("Allow", http.MethodPost)
+		http.Error(w, "method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	deleted := cleanupExpiredSessions(nowUTC())
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	_ = json.NewEncoder(w).Encode(map[string]int{
+		"deletedSessions": deleted,
+	})
+}
+
 func newMux() *http.ServeMux {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
@@ -228,11 +277,22 @@ func newMux() *http.ServeMux {
 	mux.HandleFunc("/signal/answer", postOnly(answerHandler))
 	mux.HandleFunc("/signal/session/", sessionHandler)
 	mux.HandleFunc("/signal/sdp/", sessionSdpHandler)
+	mux.HandleFunc("/signal/cleanup", cleanupHandler)
 	return mux
 }
 
 func main() {
 	addr := ":8080"
+	go func() {
+		ticker := time.NewTicker(time.Minute)
+		defer ticker.Stop()
+		for range ticker.C {
+			deleted := cleanupExpiredSessions(nowUTC())
+			if deleted > 0 {
+				log.Printf("cleaned %d expired signaling sessions", deleted)
+			}
+		}
+	}()
 	log.Printf("signaling server listening on %s", addr)
 	if err := http.ListenAndServe(addr, newMux()); err != nil {
 		log.Fatalf("server exited with error: %v", err)

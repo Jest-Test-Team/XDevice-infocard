@@ -4,6 +4,7 @@ pub struct Symbol {
     pub payload_len: usize,
     pub sequence: u32,
     pub total: u32,
+    pub neighbors: Vec<u32>,
     pub data: Vec<u8>,
 }
 
@@ -13,6 +14,7 @@ impl Symbol {
         payload_len: usize,
         sequence: u32,
         total: u32,
+        neighbors: Vec<u32>,
         data: Vec<u8>,
     ) -> Self {
         Self {
@@ -20,6 +22,7 @@ impl Symbol {
             payload_len,
             sequence,
             total,
+            neighbors,
             data,
         }
     }
