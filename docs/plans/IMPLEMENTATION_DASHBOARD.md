@@ -91,3 +91,34 @@ Implement executable scaffolds for all 4 plans under `implementations/` with non
 - `implementations/01-ultrasonic-data-transfer/core-dsp`: `cargo test` PASS (6 passed)
 - `implementations/03-animated-qr-visual-handshake/fountain-core`: `cargo test` PASS (7 passed)
 - `implementations/04-web3-sbt-contacts/backend-relayer`: `go test ./...` PASS
+
+## Continuation Batch 5 (2026-05-07)
+- Plan 04 contracts: added executable Foundry test files and config:
+  - `contracts/foundry.toml`
+  - `contracts/test/SBTProfile.t.sol`
+  - `contracts/test/ConnectionGraph.t.sol`
+- Plan 04 relayer runtime: made bind address configurable via `RELAYER_ADDR` (default `127.0.0.1:18080`).
+- Plan 04 ops: added local E2E script `scripts/relayer_e2e.sh` that builds, starts, runs prepare/submit/status flow, and validates output.
+
+### Verification
+- `implementations/04-web3-sbt-contacts/backend-relayer`: `go test ./...` PASS
+- `implementations/04-web3-sbt-contacts/scripts/relayer_e2e.sh`: cannot complete in this sandbox due to listener restriction (`bind: operation not permitted`).
+- `forge test`: not executed in this environment (`forge` not installed).
+
+## Continuation Batch 6 (2026-05-07)
+- Repository hygiene: expanded `.gitignore` to exclude generated build artifacts for Rust/Go outputs across implementations.
+- Plan 04 relayer: added replay/idempotency test ensuring `requestId` is single-use (`second submit` fails with not found/already submitted).
+
+### Verification
+- `implementations/04-web3-sbt-contacts/backend-relayer`: `go test ./...` PASS
+
+## Continuation Batch 7 (2026-05-07)
+- Plan 02 signaling server: upgraded from bare endpoint stubs to in-memory session signaling flow.
+  - `/signal/offer` now validates JSON and stores `sessionId` offer SDP.
+  - `/signal/answer` now validates JSON and requires existing offer for the same `sessionId`.
+- Plan 02 tests: added end-to-end offer/answer happy path and answer-without-offer negative test.
+- Plan 01 protocol tests: added decode invalid-frame and non-UTF8 payload rejection tests.
+
+### Verification
+- `implementations/02-nearby-connections/nearby-card-drop/signaling-server`: `go test ./...` PASS
+- `implementations/01-ultrasonic-data-transfer/core-dsp`: `cargo test` PASS (8 passed)

@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -57,6 +58,10 @@ var (
 )
 
 func main() {
+	addr := os.Getenv("RELAYER_ADDR")
+	if strings.TrimSpace(addr) == "" {
+		addr = "127.0.0.1:18080"
+	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("/health", healthHandler)
 	mux.HandleFunc("/v1/prepare", prepareHandler)
@@ -64,12 +69,12 @@ func main() {
 	mux.HandleFunc("/v1/tx/", txStatusHandler)
 
 	server := &http.Server{
-		Addr:              ":8080",
+		Addr:              addr,
 		Handler:           mux,
 		ReadHeaderTimeout: 5 * time.Second,
 	}
 
-	log.Println("backend-relayer listening on :8080")
+	log.Printf("backend-relayer listening on %s", addr)
 	if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 		log.Fatalf("server error: %v", err)
 	}

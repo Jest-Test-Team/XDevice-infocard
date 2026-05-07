@@ -1,11 +1,19 @@
 package main
 
 import (
+	"bytes"
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 )
+
+func resetSignals() {
+	signalsMu.Lock()
+	defer signalsMu.Unlock()
+	signals = map[string]signalRecord{}
+}
 
 func TestHealthEndpoint(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/health", nil)
@@ -38,6 +46,7 @@ func TestHealthEndpoint(t *testing.T) {
 }
 
 func TestPostOnlyEndpoints_MethodHandling(t *testing.T) {
+	resetSignals()
 	mux := newMux()
 	endpoints := []string{"/signal/offer", "/signal/answer"}
 
@@ -57,7 +66,16 @@ func TestPostOnlyEndpoints_MethodHandling(t *testing.T) {
 		})
 
 		t.Run(endpoint+"_POST_accepted", func(t *testing.T) {
-			req := httptest.NewRequest(http.MethodPost, endpoint, nil)
+			body := `{"sessionId":"s1","sdp":"v=0","fromPeer":"peer-a"}`
+			if endpoint == "/signal/answer" {
+				offerReq := httptest.NewRequest(http.MethodPost, "/signal/offer", strings.NewReader(body))
+				offerRec := httptest.NewRecorder()
+				mux.ServeHTTP(offerRec, offerReq)
+				if offerRec.Code != http.StatusAccepted {
+					t.Fatalf("offer precondition status %d", offerRec.Code)
+				}
+			}
+			req := httptest.NewRequest(http.MethodPost, endpoint, strings.NewReader(body))
 			rec := httptest.NewRecorder()
 			mux.ServeHTTP(rec, req)
 
@@ -65,5 +83,39 @@ func TestPostOnlyEndpoints_MethodHandling(t *testing.T) {
 				t.Fatalf("expected status %d, got %d", http.StatusAccepted, rec.Code)
 			}
 		})
+	}
+}
+
+func TestOfferAnswerFlow(t *testing.T) {
+	resetSignals()
+	mux := newMux()
+
+	offer := `{"sessionId":"sess-1","sdp":"offer-sdp","fromPeer":"alice"}`
+	offerReq := httptest.NewRequest(http.MethodPost, "/signal/offer", bytes.NewBufferString(offer))
+	offerRec := httptest.NewRecorder()
+	mux.ServeHTTP(offerRec, offerReq)
+	if offerRec.Code != http.StatusAccepted {
+		t.Fatalf("offer status = %d, want %d", offerRec.Code, http.StatusAccepted)
+	}
+
+	answer := `{"sessionId":"sess-1","sdp":"answer-sdp","fromPeer":"bob"}`
+	answerReq := httptest.NewRequest(http.MethodPost, "/signal/answer", bytes.NewBufferString(answer))
+	answerRec := httptest.NewRecorder()
+	mux.ServeHTTP(answerRec, answerReq)
+	if answerRec.Code != http.StatusAccepted {
+		t.Fatalf("answer status = %d, want %d", answerRec.Code, http.StatusAccepted)
+	}
+}
+
+func TestAnswerWithoutOfferFails(t *testing.T) {
+	resetSignals()
+	mux := newMux()
+
+	answer := `{"sessionId":"missing","sdp":"answer-sdp","fromPeer":"bob"}`
+	req := httptest.NewRequest(http.MethodPost, "/signal/answer", bytes.NewBufferString(answer))
+	rec := httptest.NewRecorder()
+	mux.ServeHTTP(rec, req)
+	if rec.Code != http.StatusNotFound {
+		t.Fatalf("status = %d, want %d", rec.Code, http.StatusNotFound)
 	}
 }

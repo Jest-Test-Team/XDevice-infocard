@@ -221,6 +221,40 @@ func TestTxStatusErrors(t *testing.T) {
 	})
 }
 
+func TestSubmitRequestIsSingleUse(t *testing.T) {
+	resetRequests()
+
+	prepareReq := httptest.NewRequest(
+		http.MethodPost,
+		"/v1/prepare",
+		strings.NewReader(`{"operation":"connect","payload":{"a":1}}`),
+	)
+	prepareRec := httptest.NewRecorder()
+	prepareHandler(prepareRec, prepareReq)
+	if prepareRec.Code != http.StatusOK {
+		t.Fatalf("prepare status = %d, want %d", prepareRec.Code, http.StatusOK)
+	}
+
+	var prepareResp prepareResponse
+	if err := json.NewDecoder(prepareRec.Body).Decode(&prepareResp); err != nil {
+		t.Fatalf("decode prepare response: %v", err)
+	}
+
+	submitBody := `{"requestId":"` + prepareResp.RequestID + `","signature":"0x1234abcd90"}`
+
+	firstReq := httptest.NewRequest(http.MethodPost, "/v1/submit", strings.NewReader(submitBody))
+	firstRec := httptest.NewRecorder()
+	submitHandler(firstRec, firstReq)
+	if firstRec.Code != http.StatusOK {
+		t.Fatalf("first submit status = %d, want %d", firstRec.Code, http.StatusOK)
+	}
+
+	secondReq := httptest.NewRequest(http.MethodPost, "/v1/submit", strings.NewReader(submitBody))
+	secondRec := httptest.NewRecorder()
+	submitHandler(secondRec, secondReq)
+	assertErrorResponse(t, secondRec, http.StatusNotFound, "request not found or already submitted")
+}
+
 func assertErrorResponse(t *testing.T, rec *httptest.ResponseRecorder, wantStatus int, wantErr string) {
 	t.Helper()
 	if rec.Code != wantStatus {

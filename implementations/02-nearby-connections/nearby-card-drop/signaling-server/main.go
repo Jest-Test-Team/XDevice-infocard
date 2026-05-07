@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"log"
 	"net/http"
+	"strings"
+	"sync"
 	"time"
 )
 
@@ -12,6 +14,30 @@ type healthResponse struct {
 	Service   string `json:"service"`
 	Timestamp string `json:"timestamp"`
 }
+
+type offerRequest struct {
+	SessionID string `json:"sessionId"`
+	Sdp       string `json:"sdp"`
+	FromPeer  string `json:"fromPeer"`
+}
+
+type answerRequest struct {
+	SessionID string `json:"sessionId"`
+	Sdp       string `json:"sdp"`
+	FromPeer  string `json:"fromPeer"`
+}
+
+type signalRecord struct {
+	OfferSdp   string
+	AnswerSdp  string
+	OfferPeer  string
+	AnswerPeer string
+}
+
+var (
+	signalsMu sync.Mutex
+	signals   = map[string]signalRecord{}
+)
 
 func healthHandler(w http.ResponseWriter, _ *http.Request) {
 	w.Header().Set("Content-Type", "application/json")
@@ -39,12 +65,61 @@ func postOnly(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func offerHandler(w http.ResponseWriter, _ *http.Request) {
+func offerHandler(w http.ResponseWriter, r *http.Request) {
+	var req offerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.SessionID) == "" || strings.TrimSpace(req.Sdp) == "" {
+		http.Error(w, "sessionId and sdp are required", http.StatusBadRequest)
+		return
+	}
+
+	signalsMu.Lock()
+	record := signals[req.SessionID]
+	record.OfferSdp = req.Sdp
+	record.OfferPeer = req.FromPeer
+	signals[req.SessionID] = record
+	signalsMu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status":    "offer-recorded",
+		"sessionId": req.SessionID,
+	})
 }
 
-func answerHandler(w http.ResponseWriter, _ *http.Request) {
+func answerHandler(w http.ResponseWriter, r *http.Request) {
+	var req answerRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "invalid json", http.StatusBadRequest)
+		return
+	}
+	if strings.TrimSpace(req.SessionID) == "" || strings.TrimSpace(req.Sdp) == "" {
+		http.Error(w, "sessionId and sdp are required", http.StatusBadRequest)
+		return
+	}
+
+	signalsMu.Lock()
+	record, ok := signals[req.SessionID]
+	if !ok || strings.TrimSpace(record.OfferSdp) == "" {
+		signalsMu.Unlock()
+		http.Error(w, "offer not found for session", http.StatusNotFound)
+		return
+	}
+	record.AnswerSdp = req.Sdp
+	record.AnswerPeer = req.FromPeer
+	signals[req.SessionID] = record
+	signalsMu.Unlock()
+
+	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(http.StatusAccepted)
+	_ = json.NewEncoder(w).Encode(map[string]string{
+		"status":    "answer-recorded",
+		"sessionId": req.SessionID,
+	})
 }
 
 func newMux() *http.ServeMux {
