@@ -11,7 +11,7 @@
   "dependencies": {
     "@dennislee928/nothingx-react-components": "^1.0.0",
     "@quasar/extras": "^1.16.17",
-    "quasar": "^2.18.5",
+    "quasar": "^2.32.2",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "vue": "^3.5.22"
