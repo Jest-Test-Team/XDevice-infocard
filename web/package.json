@@ -20,5 +20,8 @@
     "@vitejs/plugin-vue": "^6.0.1",
     "sass-embedded": "^1.99.0",
     "vite": "^7.3.7"
+  },
+  "overrides": {
+    "immutable": "^5.1.8"
   }
 }
